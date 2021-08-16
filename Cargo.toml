@@ -1,0 +1,32 @@
+[package]
+name = "radiya"
+version = "0.1.0"
+edition = "2018"
+authors = [
+    "John C. Burnham <john@yatima.io>",
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+std = []
+
+[dependencies]
+sp-std = { version = "3", default-features = false }
+sp-ipld = "0.1.1"
+sp-cid = "0.1.0"
+sp-multihash = "0.1.0"
+num-bigint = { version = "0.3", default-features = false }
+nom = { version = "6", default-features = false, features = ["alloc"] }
+base-x = { version = "0.2.8", default-features = false }
+multibase = { version = "0.9.1", default-features = false }
+nom_locate = { git = "https://github.com/yatima-inc/nom_locate", branch = "main" }
+sp-im = { git = "https://github.com/yatima-inc/sp-im", branch = "main" }
+sized-chunks = { git = "https://github.com/yatima-inc/sized-chunks", branch = "main", default-features = false }
+
+[dev-dependencies]
+quickcheck = "1.0.3"
+rand = "0.8.3"
+quickcheck_macros = "1.0.0"
