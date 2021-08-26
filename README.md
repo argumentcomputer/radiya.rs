@@ -9,7 +9,7 @@ A Rust implementation of the Lean kernel
 > number and total curvature." 
 >
 > "Really?" Yatima felt a surge of pride; Euler and Gauss were legendary
-> miners-long- dead fleshers, but their skills had rarely been equaled.
+> miners - long-dead fleshers, but their skills had rarely been equaled.
 >
 > "Not quite." Radiya smiled slightly. "You should look up the precise statement
 > of it, though; I think you're ready for a formal treatment of Riemannian
