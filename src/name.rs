@@ -12,13 +12,13 @@ use alloc::string::{
   ToString,
 };
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum NamePart {
   Text(String),
   Int(BigUint),
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Name {
   pub system: bool,
   pub parts: Vector<NamePart>,

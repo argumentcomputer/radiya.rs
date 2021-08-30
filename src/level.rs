@@ -1,6 +1,7 @@
 use crate::name::Name;
 use sp_std::boxed::Box;
 
+#[derive(Clone, Debug)]
 pub enum Level {
   Zero,
   Succ(Box<Level>),

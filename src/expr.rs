@@ -7,6 +7,7 @@ use sp_im::vector::Vector;
 
 use sp_std::boxed::Box;
 
+#[derive(Clone, Debug)]
 pub enum Bind {
   Default,
   Implicit,
@@ -14,13 +15,14 @@ pub enum Bind {
   Class,
 }
 
+#[derive(Clone, Debug)]
 pub enum Expr {
-  Var { idx: u64 },
-  Lambda { name: Name, bind: Bind, dom: Box<Expr>, bod: Box<Expr> },
-  Pi { name: Name, bind: Bind, dom: Box<Expr>, bod: Box<Expr> },
-  Sort { level: Level },
-  App { fun: Box<Expr>, arg: Box<Expr> },
-  Let { name: Name, bind: Bind, typ: Box<Expr>, val: Box<Expr>, bod: Box<Expr> },
-  Const { name: Name, levels: Vector<Level> },
-  Local { name: Name, bind: Bind, typ: Box<Expr> },
+  Var(u64),
+  Lam(Name, Bind, Box<Expr>, Box<Expr>),
+  All(Name, Bind, Box<Expr>, Box<Expr>),
+  Sort(Level),
+  App(Box<Expr>, Box<Expr>),
+  Let(Name, Bind, Box<Expr>, Box<Expr>, Box<Expr>),
+  Const(Name, Vector<Level>),
+  Local(Name, Bind, Box<Expr>),
 }

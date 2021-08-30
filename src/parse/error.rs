@@ -1,4 +1,9 @@
 use crate::{
+  export::{
+    Eid,
+    Nid,
+    Uid,
+  },
   name::Name,
   parse::{
     base,
@@ -32,10 +37,16 @@ pub enum ParseErrorKind {
   MultibaseError(multibase::Error),
   InvalidBaseEncoding(base::LitBase),
   UnknownBaseCode,
+  UndefinedNid(Nid),
+  UndefinedEid(Eid),
+  UndefinedUid(Uid),
+  RedefinedNid(Nid),
+  RedefinedEid(Eid),
+  RedefinedUid(Uid),
   // ExpectedSingleChar(Vec<char>),
   // InvalidBase16EscapeSequence(String),
   // CidError,
-  // ParseIntErr(ParseIntError),
+  ParseIntErr(ParseIntError),
   // ReservedKeyword(String),
   // NumericSyntax(String),
   // ReservedSyntax(String),
