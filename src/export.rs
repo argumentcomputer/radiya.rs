@@ -27,27 +27,41 @@ pub struct Ctx {
   pub univs: BTreeMap<Uid, UnivDecl>,
   pub names: BTreeMap<Nid, NameDecl>,
   pub exprs: BTreeMap<Eid, ExprDecl>,
-  pub decls: Vec<Decl>,
+  pub notations: Vec<Notation>,
+  pub decls: Vec<TopDecl>,
 }
 
-#[derive(Clone, Debug)]
-pub enum UnivDecl {
-  /// #US
-  UnivSucc { pred: Uid },
-  /// #UM
-  UnivMax { lhs: Uid, rhs: Uid },
-  /// #UI
-  UnivIMax { lhs: Uid, rhs: Uid },
-  /// #UP
-  UnivParam { name: Nid },
+impl Ctx {
+  pub fn new() -> Self {
+    Ctx {
+      univs: BTreeMap::new(),
+      names: BTreeMap::new(),
+      exprs: BTreeMap::new(),
+      notations: Vec::new(),
+      decls: Vec::new(),
+    }
+  }
 }
 
 #[derive(Clone, Debug)]
 pub enum NameDecl {
-  /// #NS
+  /// Extends a hierarchical name `prev` with `name` to make `prev.name`
   NameStr { prev: Nid, name: String },
-  /// #NI
-  NameInt { prev: Nid, name: BigUint },
+  /// Extends a hierarchical name `prev` with `int` to make `prev.int`
+  NameInt { prev: Nid, int: BigUint },
+}
+
+#[derive(Clone, Debug)]
+pub enum UnivDecl {
+  /// Defines the successor universe of pred
+  UnivSucc { pred: Uid },
+  /// Defines the maximum universe of the lhs and rhs:
+  UnivMax { lhs: Uid, rhs: Uid },
+  /// Defines the impredicative maximum universe for lhs and
+  /// rhs, which is zero if rhs is zero and #UM otherwise.
+  UnivIMax { lhs: Uid, rhs: Uid },
+  /// Defines a universe parameter
+  UnivParam { name: Nid },
 }
 
 #[derive(Clone, Debug)]
@@ -63,9 +77,9 @@ pub enum ExprDecl {
   /// #EL
   ExprLam { info: Bind, name: Nid, typ: Eid, bod: Eid },
   /// #EP
-  ExprAll { info: Bind, name: Nid, typ: Eid, bod: Eid },
+  ExprPi { info: Bind, name: Nid, typ: Eid, bod: Eid },
   /// #EZ
-  ExprLet { info: Bind, name: Nid, typ: Eid, val: Eid, bod: Eid },
+  ExprLet { name: Nid, typ: Eid, val: Eid, bod: Eid },
 }
 
 #[derive(Clone, Debug)]
@@ -76,19 +90,19 @@ pub enum Notation {
 }
 
 #[derive(Clone, Debug)]
-pub enum Decl {
+pub enum TopDecl {
   /// #DEF
   Definition { name: Nid, typ: Eid, val: Eid, levels: Vector<Nid> },
   /// #IND
   Inductive {
-    num: u64,
+    num_params: u64,
     name: Nid,
     typ: Eid,
-    intros: Vector<Eid>,
+    intros: Vector<(Nid, Eid)>,
     levels: Vector<Nid>,
   },
   /// #AX
-  Axiom { name: Nid, exp: Eid, levels: Vector<Nid> },
+  Axiom { name: Nid, typ: Eid, levels: Vector<Nid> },
   /// #QUOT
-  Quot,
+  Quotient,
 }

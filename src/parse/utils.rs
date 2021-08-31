@@ -57,7 +57,7 @@ pub fn parse_u64(from: Span) -> IResult<Span, u64, ParseError<Span>> {
 }
 
 pub fn parse_text(from: Span) -> IResult<Span, String, ParseError<Span>> {
-  let (i, s) = take_till1(|x| char::is_whitespace(x) | (x == '.'))(from)?;
+  let (i, s) = take_till1(|x| char::is_whitespace(x))(from)?;
   let s: String = String::from(s.fragment().clone());
   Ok((i, s))
 }
