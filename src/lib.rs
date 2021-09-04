@@ -13,11 +13,16 @@ extern crate rand;
 #[macro_use]
 extern crate alloc;
 
+// pub mod declaration;
+// pub mod inductive;
+// pub mod quotient;
+// pub mod notation;
+pub mod content;
 pub mod export;
-pub mod expr;
-pub mod level;
+pub mod expression;
 pub mod name;
 pub mod parse;
+pub mod universe;
 
 #[cfg(test)]
 mod tests {

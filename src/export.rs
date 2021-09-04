@@ -1,4 +1,4 @@
-use crate::expr::Bind;
+use crate::expression::Bind;
 
 use num_bigint::BigUint;
 use sp_im::vector::Vector;
@@ -12,30 +12,30 @@ use alloc::string::String;
 
 // universe index
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug)]
-pub struct Uid(pub u64);
+pub struct UIdx(pub u64);
 
 // expr index
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug)]
-pub struct Eid(pub u64);
+pub struct EIdx(pub u64);
 
 // name index
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug)]
-pub struct Nid(pub u64);
+pub struct NIdx(pub u64);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Ctx {
-  pub univs: BTreeMap<Uid, UnivDecl>,
-  pub names: BTreeMap<Nid, NameDecl>,
-  pub exprs: BTreeMap<Eid, ExprDecl>,
+  pub univs: BTreeMap<UIdx, Univ>,
+  pub names: BTreeMap<NIdx, Name>,
+  pub exprs: BTreeMap<EIdx, Expr>,
   pub notations: Vec<Notation>,
-  pub decls: Vec<TopDecl>,
+  pub decls: Vec<Decl>,
 }
 
 impl Ctx {
   pub fn new() -> Self {
     Ctx {
-      univs: BTreeMap::new(),
-      names: BTreeMap::new(),
+      univs: vec![(UIdx(0), Univ::Zero)].into_iter().collect(),
+      names: vec![(NIdx(0), Name::Anon)].into_iter().collect(),
       exprs: BTreeMap::new(),
       notations: Vec::new(),
       decls: Vec::new(),
@@ -43,66 +43,70 @@ impl Ctx {
   }
 }
 
-#[derive(Clone, Debug)]
-pub enum NameDecl {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Name {
+  /// Anonymous name
+  Anon,
   /// Extends a hierarchical name `prev` with `name` to make `prev.name`
-  NameStr { prev: Nid, name: String },
+  Str { prev: NIdx, name: String },
   /// Extends a hierarchical name `prev` with `int` to make `prev.int`
-  NameInt { prev: Nid, int: BigUint },
+  Int { prev: NIdx, int: BigUint },
 }
 
-#[derive(Clone, Debug)]
-pub enum UnivDecl {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Univ {
+  /// The 0 universe
+  Zero,
   /// Defines the successor universe of pred
-  UnivSucc { pred: Uid },
+  Succ { pred: UIdx },
   /// Defines the maximum universe of the lhs and rhs:
-  UnivMax { lhs: Uid, rhs: Uid },
+  Max { lhs: UIdx, rhs: UIdx },
   /// Defines the impredicative maximum universe for lhs and
   /// rhs, which is zero if rhs is zero and #UM otherwise.
-  UnivIMax { lhs: Uid, rhs: Uid },
+  IMax { lhs: UIdx, rhs: UIdx },
   /// Defines a universe parameter
-  UnivParam { name: Nid },
+  Param { name: NIdx },
 }
 
-#[derive(Clone, Debug)]
-pub enum ExprDecl {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Expr {
   /// #EV
-  ExprVar { idx: u64 },
+  Var { idx: u64 },
   /// #ES
-  ExprSort { univ: Uid },
+  Sort { univ: UIdx },
   /// #EC
-  ExprConst { name: Nid, levels: Vector<Uid> },
+  Const { name: NIdx, levels: Vector<UIdx> },
   /// #EA
-  ExprApp { fun: Eid, arg: Eid },
+  App { fun: EIdx, arg: EIdx },
   /// #EL
-  ExprLam { info: Bind, name: Nid, typ: Eid, bod: Eid },
+  Lam { info: Bind, name: NIdx, typ: EIdx, bod: EIdx },
   /// #EP
-  ExprPi { info: Bind, name: Nid, typ: Eid, bod: Eid },
+  Pi { info: Bind, name: NIdx, typ: EIdx, bod: EIdx },
   /// #EZ
-  ExprLet { name: Nid, typ: Eid, val: Eid, bod: Eid },
+  Let { name: NIdx, typ: EIdx, val: EIdx, bod: EIdx },
 }
 
-#[derive(Clone, Debug)]
-pub enum Notation {
-  Prefix { name: Nid, prec: u64, token: String },
-  Infix { name: Nid, prec: u64, token: String },
-  Postfix { name: Nid, prec: u64, token: String },
-}
-
-#[derive(Clone, Debug)]
-pub enum TopDecl {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Decl {
   /// #DEF
-  Definition { name: Nid, typ: Eid, val: Eid, levels: Vector<Nid> },
+  Definition { name: NIdx, typ: EIdx, val: EIdx, levels: Vector<NIdx> },
   /// #IND
   Inductive {
     num_params: u64,
-    name: Nid,
-    typ: Eid,
-    intros: Vector<(Nid, Eid)>,
-    levels: Vector<Nid>,
+    name: NIdx,
+    typ: EIdx,
+    intros: Vector<(NIdx, EIdx)>,
+    levels: Vector<NIdx>,
   },
   /// #AX
-  Axiom { name: Nid, typ: Eid, levels: Vector<Nid> },
+  Axiom { name: NIdx, typ: EIdx, levels: Vector<NIdx> },
   /// #QUOT
   Quotient,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Notation {
+  Prefix { name: NIdx, prec: u64, token: String },
+  Infix { name: NIdx, prec: u64, token: String },
+  Postfix { name: NIdx, prec: u64, token: String },
 }
