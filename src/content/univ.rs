@@ -5,7 +5,10 @@ use crate::content::{
   },
   ipld_error::IpldError,
 };
-use alloc::borrow::ToOwned;
+use alloc::{
+  borrow::ToOwned,
+  string::String,
+};
 
 use sp_ipld::{
   dag_cbor::DagCborCodec,
@@ -29,24 +32,22 @@ pub enum Univ {
 impl Univ {
   pub fn to_ipld(&self) -> Ipld {
     match self {
-      Self::Zero => Ipld::List(vec![Ipld::Integer(1), Ipld::Integer(0)]),
+      Self::Zero => Ipld::List(vec![Ipld::String(String::from("#UZ"))]),
       Self::Succ { pred } => {
-        Ipld::List(vec![Ipld::Integer(1), Ipld::Integer(1), Ipld::Link(pred.0)])
+        Ipld::List(vec![Ipld::String(String::from("#US")), Ipld::Link(pred.0)])
       }
       Self::Max { lhs, rhs } => Ipld::List(vec![
-        Ipld::Integer(1),
-        Ipld::Integer(2),
+        Ipld::String(String::from("#UM")),
         Ipld::Link(lhs.0),
         Ipld::Link(rhs.0),
       ]),
       Self::IMax { lhs, rhs } => Ipld::List(vec![
-        Ipld::Integer(1),
-        Ipld::Integer(3),
+        Ipld::String(String::from("#UIM")),
         Ipld::Link(lhs.0),
         Ipld::Link(rhs.0),
       ]),
       Self::Param { name } => {
-        Ipld::List(vec![Ipld::Integer(1), Ipld::Integer(4), Ipld::Link(name.0)])
+        Ipld::List(vec![Ipld::String(String::from("#UP")), Ipld::Link(name.0)])
       }
     }
   }
@@ -57,49 +58,76 @@ impl Univ {
     ))
   }
 
-  pub fn from_ipld(ipld: Ipld) -> Result<Self, IpldError> {
+  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    use Ipld::*;
     match ipld {
-      Ipld::List(xs) => match xs.as_slice() {
-        [Ipld::Integer(1), Ipld::Integer(0)] => Ok(Univ::Zero),
-        [Ipld::Integer(1), Ipld::Integer(1), Ipld::Link(x)] => {
-          if let Some(pred) = UnivCid::from_cid(*x) {
-            Ok(Univ::Succ { pred })
-          }
-          else {
-            Err(IpldError::UnivCid(*x))
-          }
+      List(xs) => match xs.as_slice() {
+        [String(tag)] if tag == "#UZ" => Ok(Univ::Zero),
+        [String(tag), Link(p)] if tag == "#US" => {
+          let pred = UnivCid::from_cid(*p)?;
+          Ok(Univ::Succ { pred })
         }
-        [Ipld::Integer(1), Ipld::Integer(2), Ipld::Link(x), Ipld::Link(y)] => {
-          if let (Some(lhs), Some(rhs)) =
-            (UnivCid::from_cid(*x), UnivCid::from_cid(*y))
-          {
-            Ok(Univ::Max { lhs, rhs })
-          }
-          else {
-            Err(IpldError::UnivCid(*x))
-          }
+        [String(tag), Link(l), Link(r)] if tag == "#UM" => {
+          let lhs = UnivCid::from_cid(*l)?;
+          let rhs = UnivCid::from_cid(*r)?;
+          Ok(Univ::Max { lhs, rhs })
         }
-        [Ipld::Integer(1), Ipld::Integer(3), Ipld::Link(x), Ipld::Link(y)] => {
-          if let (Some(lhs), Some(rhs)) =
-            (UnivCid::from_cid(*x), UnivCid::from_cid(*y))
-          {
-            Ok(Univ::IMax { lhs, rhs })
-          }
-          else {
-            Err(IpldError::UnivCid(*x))
-          }
+        [String(tag), Link(l), Link(r)] if tag == "#UIM" => {
+          let lhs = UnivCid::from_cid(*l)?;
+          let rhs = UnivCid::from_cid(*r)?;
+          Ok(Univ::IMax { lhs, rhs })
         }
-        [Ipld::Integer(1), Ipld::Integer(4), Ipld::Link(x)] => {
-          if let Some(name) = NameCid::from_cid(*x) {
-            Ok(Univ::Param { name })
-          }
-          else {
-            Err(IpldError::NameCid(*x))
-          }
+        [String(tag), Link(n)] if tag == "#UP" => {
+          let name = NameCid::from_cid(*n)?;
+          Ok(Univ::Param { name })
         }
-        xs => Err(IpldError::Univ(Ipld::List(xs.to_owned()))),
+        xs => Err(IpldError::Univ(List(xs.to_owned()))),
       },
       xs => Err(IpldError::Univ(xs.to_owned())),
+    }
+  }
+}
+
+#[cfg(test)]
+pub mod tests {
+  use crate::content::tests::frequency;
+
+  use super::*;
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  impl Arbitrary for Univ {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Univ>)> = vec![
+        (1, Box::new(|_| Univ::Zero)),
+        (1, Box::new(|g| Univ::Succ { pred: Arbitrary::arbitrary(g) })),
+        (
+          1,
+          Box::new(|g| Univ::Max {
+            lhs: Arbitrary::arbitrary(g),
+            rhs: Arbitrary::arbitrary(g),
+          }),
+        ),
+        (
+          1,
+          Box::new(|g| Univ::IMax {
+            lhs: Arbitrary::arbitrary(g),
+            rhs: Arbitrary::arbitrary(g),
+          }),
+        ),
+        (1, Box::new(|g| Univ::Param { name: Arbitrary::arbitrary(g) })),
+      ];
+      frequency(g, input)
+    }
+  }
+
+  #[quickcheck]
+  fn univ_ipld(x: Univ) -> bool {
+    match Univ::from_ipld(&x.to_ipld()) {
+      Ok(y) => x == y,
+      _ => false,
     }
   }
 }

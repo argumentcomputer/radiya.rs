@@ -25,3 +25,26 @@ pub enum Expr {
   Let(Name, Bind, Rc<Expr>, Rc<Expr>, Rc<Expr>),
   Const(Name, Vector<Univ>),
 }
+
+#[cfg(test)]
+pub mod tests {
+  use crate::content::tests::frequency;
+
+  use super::*;
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  impl Arbitrary for Bind {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Bind>)> = vec![
+        (1, Box::new(|_| Bind::Default)),
+        (1, Box::new(|_| Bind::Implicit)),
+        (1, Box::new(|_| Bind::Strict)),
+        (1, Box::new(|_| Bind::Class)),
+      ];
+      frequency(g, input)
+    }
+  }
+}

@@ -18,4 +18,8 @@ pub enum IpldError {
   Expr(Ipld),
   Bind(Ipld),
   ExprCid(Cid),
+  Decl(Ipld),
+  Notation(Ipld),
+  DeclCid(Cid),
+  Intro(Ipld),
 }

@@ -26,8 +26,27 @@ pub mod universe;
 
 #[cfg(test)]
 mod tests {
-  #[test]
-  fn it_works() {
-    assert_eq!(2 + 2, 4);
+  use num_bigint::BigUint;
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+  use sp_std::ops::Range;
+
+  pub fn gen_range(g: &mut Gen, range: Range<usize>) -> usize {
+    if range.end <= range.start {
+      range.start
+    }
+    else {
+      let res: usize = Arbitrary::arbitrary(g);
+      (res % (range.end - range.start)) + range.start
+    }
+  }
+
+  pub fn arbitrary_big_uint() -> Box<dyn Fn(&mut Gen) -> BigUint> {
+    Box::new(move |g: &mut Gen| {
+      let v: Vec<u8> = Arbitrary::arbitrary(g);
+      BigUint::from_bytes_be(&v)
+    })
   }
 }

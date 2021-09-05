@@ -73,7 +73,6 @@ pub enum Command {
   Univ(UIdx, Univ),
   Name(NIdx, Name),
   Expr(EIdx, Expr),
-  Nota(Notation),
   Decl(Decl),
 }
 
@@ -138,7 +137,6 @@ pub fn parse_command(
   move |from: Span| {
     alt((
       parse_decl(ctx.clone()),
-      parse_notation(ctx.clone()),
       parse_name(ctx.clone()),
       parse_univ(ctx.clone()),
       parse_expr(ctx.clone()),
@@ -154,6 +152,7 @@ pub fn parse_decl(
       parse_definition(ctx.clone()),
       parse_inductive(ctx.clone()),
       parse_axiom(ctx.clone()),
+      parse_notation(ctx.clone()),
       parse_quot(),
     ))(i)?;
     return Ok((i, Command::Decl(res)));
@@ -238,7 +237,7 @@ pub fn parse_axiom(
 
 pub fn parse_notation(
   ctx: RefCtx,
-) -> impl Fn(Span) -> IResult<Span, Command, ParseError<Span>> {
+) -> impl Fn(Span) -> IResult<Span, Decl, ParseError<Span>> {
   move |i: Span| {
     let (i, tag) = alt((tag("#PREFIX"), tag("#INFIX"), tag("#POSTFIX")))(i)?;
     let (i, _) = parse_space1(i)?;
@@ -253,7 +252,7 @@ pub fn parse_notation(
       "#POSTFIX" => Notation::Postfix { name, prec, token },
       _ => unreachable!(),
     };
-    return Ok((i, Command::Nota(res)));
+    return Ok((i, Decl::Notation(res)));
   }
 }
 

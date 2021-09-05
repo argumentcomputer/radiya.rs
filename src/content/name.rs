@@ -27,16 +27,14 @@ pub enum Name {
 impl Name {
   pub fn to_ipld(&self) -> Ipld {
     match self {
-      Self::Anon => Ipld::List(vec![Ipld::Integer(0), Ipld::Integer(0)]),
+      Self::Anon => Ipld::List(vec![Ipld::String(String::from("#NA"))]),
       Self::Str { prev, name } => Ipld::List(vec![
-        Ipld::Integer(0),
-        Ipld::Integer(1),
+        Ipld::String(String::from("#NS")),
         Ipld::Link(prev.0),
         Ipld::String(name.clone()),
       ]),
       Self::Int { prev, int } => Ipld::List(vec![
-        Ipld::Integer(0),
-        Ipld::Integer(2),
+        Ipld::String(String::from("#NI")),
         Ipld::Link(prev.0),
         Ipld::Bytes(int.to_bytes_be()),
       ]),
@@ -49,30 +47,68 @@ impl Name {
     ))
   }
 
-  pub fn from_ipld(ipld: Ipld) -> Result<Self, IpldError> {
+  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    use Ipld::*;
     match ipld {
       Ipld::List(xs) => match xs.as_slice() {
-        [Ipld::Integer(0), Ipld::Integer(0)] => Ok(Name::Anon),
-        [Ipld::Integer(0), Ipld::Integer(1), Ipld::Link(x), Ipld::String(y)] => {
-          if let Some(prev) = NameCid::from_cid(*x) {
-            Ok(Name::Str { prev, name: y.clone() })
-          }
-          else {
-            Err(IpldError::NameCid(*x))
-          }
+        [String(tag)] if tag == "#NA" => Ok(Name::Anon),
+        [String(tag), Link(p), String(n)] if tag == "#NS" => {
+          let prev = NameCid::from_cid(*p)?;
+          Ok(Name::Str { prev, name: n.clone() })
         }
-        [Ipld::Integer(0), Ipld::Integer(2), Ipld::Link(x), Ipld::Bytes(y)] => {
-          if let Some(prev) = NameCid::from_cid(*x) {
-            Ok(Name::Int { prev, int: BigUint::from_bytes_be(&y) })
-          }
-          else {
-            Err(IpldError::NameCid(*x))
-          }
+        [String(tag), Link(p), Bytes(i)] if tag == "#NI" => {
+          let prev = NameCid::from_cid(*p)?;
+          Ok(Name::Int { prev, int: BigUint::from_bytes_be(&i) })
         }
 
-        xs => Err(IpldError::Name(Ipld::List(xs.to_owned()))),
+        xs => Err(IpldError::Name(List(xs.to_owned()))),
       },
       xs => Err(IpldError::Name(xs.to_owned())),
+    }
+  }
+}
+
+#[cfg(test)]
+pub mod tests {
+  use crate::{
+    content::tests::frequency,
+    tests::arbitrary_big_uint,
+  };
+
+  use super::*;
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  impl Arbitrary for Name {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Name>)> = vec![
+        (1, Box::new(|_| Name::Anon)),
+        (
+          1,
+          Box::new(|g| Name::Str {
+            prev: Arbitrary::arbitrary(g),
+            name: Arbitrary::arbitrary(g),
+          }),
+        ),
+        (
+          1,
+          Box::new(|g| Name::Int {
+            prev: Arbitrary::arbitrary(g),
+            int: arbitrary_big_uint()(g),
+          }),
+        ),
+      ];
+      frequency(g, input)
+    }
+  }
+
+  #[quickcheck]
+  fn name_ipld(x: Name) -> bool {
+    match Name::from_ipld(&x.to_ipld()) {
+      Ok(y) => x == y,
+      _ => false,
     }
   }
 }

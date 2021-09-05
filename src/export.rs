@@ -89,7 +89,12 @@ pub enum Expr {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Decl {
   /// #DEF
-  Definition { name: NIdx, typ: EIdx, val: EIdx, levels: Vector<NIdx> },
+  Definition {
+    name: NIdx,
+    typ: EIdx,
+    val: EIdx,
+    levels: Vector<NIdx>,
+  },
   /// #IND
   Inductive {
     num_params: u64,
@@ -99,9 +104,14 @@ pub enum Decl {
     levels: Vector<NIdx>,
   },
   /// #AX
-  Axiom { name: NIdx, typ: EIdx, levels: Vector<NIdx> },
+  Axiom {
+    name: NIdx,
+    typ: EIdx,
+    levels: Vector<NIdx>,
+  },
   /// #QUOT
   Quotient,
+  Notation(Notation),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
