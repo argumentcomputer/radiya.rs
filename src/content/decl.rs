@@ -1,13 +1,10 @@
-use crate::{
-  content::{
-    cid::{
-      DeclCid,
-      ExprCid,
-      NameCid,
-    },
-    ipld_error::IpldError,
+use crate::content::{
+  cid::{
+    DeclCid,
+    ExprCid,
+    NameCid,
   },
-  expression::Bind,
+  ipld_error::IpldError,
 };
 
 use alloc::{
@@ -38,25 +35,17 @@ pub enum Fixity {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Decl {
-  Definition {
-    name: NameCid,
-    typ: ExprCid,
-    val: ExprCid,
-    levels: Vector<NameCid>,
-    is_unsafe: bool,
-  },
   Axiom {
     name: NameCid,
     typ: ExprCid,
     levels: Vector<NameCid>,
     is_unsafe: bool,
   },
-  Inductive {
-    num_params: BigUint,
+  Definition {
     name: NameCid,
-    typ: ExprCid,
-    intros: Vector<(NameCid, ExprCid)>,
     levels: Vector<NameCid>,
+    typ: ExprCid,
+    val: ExprCid,
     is_unsafe: bool,
   },
   Theorem {
@@ -72,6 +61,14 @@ pub enum Decl {
     levels: Vector<NameCid>,
   },
   Quotient,
+  Inductive {
+    num_params: BigUint,
+    name: NameCid,
+    typ: ExprCid,
+    intros: Vector<(NameCid, ExprCid)>,
+    levels: Vector<NameCid>,
+    is_unsafe: bool,
+  },
   Notation {
     fixity: Fixity,
     name: NameCid,

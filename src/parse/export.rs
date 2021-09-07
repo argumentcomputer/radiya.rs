@@ -30,7 +30,6 @@ use sp_im::vector::Vector;
 
 use sp_std::{
   borrow::ToOwned,
-  boxed::Box,
   cell::RefCell,
   rc::Rc,
   vec::Vec,
@@ -38,10 +37,7 @@ use sp_std::{
 
 use nom::{
   branch::alt,
-  bytes::complete::{
-    tag,
-    take_till,
-  },
+  bytes::complete::tag,
   character::complete::newline,
   combinator::{
     eof,
@@ -49,10 +45,6 @@ use nom::{
     value,
   },
   multi::many0,
-  number::{
-    complete::u64,
-    Endianness,
-  },
   sequence::{
     preceded,
     terminated,
