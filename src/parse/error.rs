@@ -1,4 +1,9 @@
 use crate::{
+  export::{
+    EIdx,
+    NIdx,
+    UIdx,
+  },
   name::Name,
   parse::{
     base,
@@ -32,10 +37,16 @@ pub enum ParseErrorKind {
   MultibaseError(multibase::Error),
   InvalidBaseEncoding(base::LitBase),
   UnknownBaseCode,
+  UndefinedNIdx(NIdx),
+  UndefinedEIdx(EIdx),
+  UndefinedUIdx(UIdx),
+  RedefinedNIdx(NIdx),
+  RedefinedEIdx(EIdx),
+  RedefinedUIdx(UIdx),
   // ExpectedSingleChar(Vec<char>),
   // InvalidBase16EscapeSequence(String),
   // CidError,
-  // ParseIntErr(ParseIntError),
+  ParseIntErr(ParseIntError),
   // ReservedKeyword(String),
   // NumericSyntax(String),
   // ReservedSyntax(String),

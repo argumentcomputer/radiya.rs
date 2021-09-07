@@ -15,6 +15,7 @@ use crate::{
       ParseErrorKind,
     },
     span::Span,
+    utils::parse_integer,
   },
 };
 use nom::{
@@ -57,23 +58,8 @@ use sp_std::{
   vec::Vec,
 };
 
-pub fn parse_namepart_text(
-  from: Span,
-) -> IResult<Span, NamePart, ParseError<Span>> {
-  let (i, s) = take_till1(|x| char::is_whitespace(x) | (x == '.'))(from)?;
-  let s: String = String::from(s.fragment().to_owned());
-  Ok((i, NamePart::Text(s)))
-}
-
-pub fn parse_namepart_int(
-  from: Span,
-) -> IResult<Span, NamePart, ParseError<Span>> {
-  let (i, digits) = parse_litbase_digits(LitBase::Dec)(from)?;
-  match base_x::decode(LitBase::Dec.base_digits(), &digits) {
-    Ok(bytes) => Ok((i, NamePart::Int(BigUint::from_bytes_be(&bytes)))),
-    Err(_) => Err(nom::Err::Error(ParseError::new(
-      i,
-      ParseErrorKind::InvalidBaseEncoding(LitBase::Dec),
-    ))),
-  }
-}
+// pub fn parse_text(from: Span) -> IResult<Span, String, ParseError<Span>> {
+//  let (i, s) = take_till1(|x| char::is_whitespace(x) | (x == '.'))(from)?;
+//  let s: String = String::from(s.fragment().to_owned());
+//  Ok((i, s))
+//}
