@@ -15,7 +15,7 @@ pub enum Literal {
   Nat(BigUint),
   Str(String),
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinderInfo {
   Default,
   Implicit,
@@ -29,8 +29,8 @@ pub struct MData {}
 
 #[derive(Clone, Debug)]
 pub enum Expr {
-  BVar(BigUint),
-  FVar(Name),
+  BVar(usize),
+  FVar(usize),
   MVar(Name),
   Sort(Univ),
   Const(Name, Vector<Univ>),

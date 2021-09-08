@@ -22,6 +22,7 @@ pub mod local_context;
 // pub mod content;
 // pub mod export;
 pub mod expression;
+pub mod check;
 pub mod kvmap;
 pub mod name;
 // pub mod parse;
