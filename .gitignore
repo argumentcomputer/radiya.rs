@@ -2,4 +2,5 @@
 /_target
 /leanpkg.path
 /build
-/build
+target
+result*
