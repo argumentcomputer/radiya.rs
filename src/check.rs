@@ -1,5 +1,5 @@
 use crate::{
-  universe::Univ,
+  universe::is_same_level,
   expression::Expr,
 };
 
@@ -138,11 +138,11 @@ pub fn equal(
     (Expr::FVar(uniq_a), Expr::FVar(uniq_b)) => {
       *uniq_a == *uniq_b
     }
-    (Expr::Sort(level_a), Expr::Sort(level_b)) => {
-      is_same_level(level_a, level_b)
+    (Expr::Sort(lvl_a), Expr::Sort(lvl_b)) => {
+      is_same_level(lvl_a, lvl_b)
     }
-    (Expr::Const(nam_a, levels_a), Expr::Const(nam_b, levels_b)) => {
-      if nam_a == nam_b && levels_a.iter().zip(levels_b).all(|(a, b)| is_same_level(a, b)) {
+    (Expr::Const(nam_a, lvls_a), Expr::Const(nam_b, lvls_b)) => {
+      if nam_a == nam_b && lvls_a.iter().zip(lvls_b).all(|(a, b)| is_same_level(a, b)) {
         return args_a.iter().zip(args_b).all(|(a, b)| equal(&a, &b, unique))
       }
       false
@@ -175,12 +175,4 @@ pub fn is_proof_irrel(
 ) -> bool {
   // TODO
   false
-}
-
-pub fn is_same_level(
-  _level_a: &Univ,
-  _level_b: &Univ,
-) -> bool {
-  // TODO
-  todo!()
 }
