@@ -1,6 +1,9 @@
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
 #![cfg_attr(test, feature(new_uninit))]
 #![cfg_attr(test, feature(box_into_inner))]
+#![allow(incomplete_features)]
+#![feature(const_generics)]
+#![feature(const_evaluatable_checked)]
 
 #[cfg(test)]
 extern crate quickcheck;
@@ -18,13 +21,13 @@ pub mod environment;
 pub mod local_context;
 // pub mod inductive;
 // pub mod quotient;
-// pub mod notation;
-// pub mod content;
-// pub mod export;
+pub mod content;
+pub mod export;
 pub mod expression;
 pub mod kvmap;
 pub mod name;
-// pub mod parse;
+// pub mod notation;
+pub mod parse;
 pub mod universe;
 
 #[cfg(test)]

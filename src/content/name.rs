@@ -1,6 +1,9 @@
-use crate::content::{
-  cid::NameCid,
-  ipld_error::IpldError,
+use crate::content::ipld::{
+  Cid,
+  IpldEmbed,
+  IpldError,
+  NameCid,
+  NAME,
 };
 use alloc::{
   borrow::ToOwned,
@@ -24,46 +27,50 @@ pub enum Name {
   Int { prev: NameCid, int: BigUint },
 }
 
-impl Name {
-  pub fn to_ipld(&self) -> Ipld {
+impl IpldEmbed for Name {
+  const CODEC: u64 = NAME;
+
+  fn to_ipld(&self) -> Ipld {
     match self {
       Self::Anon => Ipld::List(vec![Ipld::String(String::from("#NA"))]),
       Self::Str { prev, name } => Ipld::List(vec![
         Ipld::String(String::from("#NS")),
-        Ipld::Link(prev.0),
+        Ipld::Link(prev.to_dyn()),
         Ipld::String(name.clone()),
       ]),
       Self::Int { prev, int } => Ipld::List(vec![
         Ipld::String(String::from("#NI")),
-        Ipld::Link(prev.0),
+        Ipld::Link(prev.to_dyn()),
         Ipld::Bytes(int.to_bytes_be()),
       ]),
     }
   }
 
-  pub fn cid(&self) -> NameCid {
-    NameCid::new(Code::Blake3_256.digest(
-      DagCborCodec.encode(&self.to_ipld()).unwrap().into_inner().as_ref(),
-    ))
+  fn cid(&self) -> Cid<{ Self::CODEC }> {
+    Cid {
+      hash: Code::Blake3_256.digest(
+        DagCborCodec.encode(&self.to_ipld()).unwrap().into_inner().as_ref(),
+      ),
+    }
   }
 
-  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     use Ipld::*;
     match ipld {
       Ipld::List(xs) => match xs.as_slice() {
         [String(tag)] if tag == "#NA" => Ok(Name::Anon),
         [String(tag), Link(p), String(n)] if tag == "#NS" => {
-          let prev = NameCid::from_cid(*p)?;
+          let prev = Cid::from_dyn(p)?;
           Ok(Name::Str { prev, name: n.clone() })
         }
         [String(tag), Link(p), Bytes(i)] if tag == "#NI" => {
-          let prev = NameCid::from_cid(*p)?;
+          let prev = NameCid::from_dyn(p)?;
           Ok(Name::Int { prev, int: BigUint::from_bytes_be(&i) })
         }
 
-        xs => Err(IpldError::Name(List(xs.to_owned()))),
+        xs => Err(IpldError::ExpectedName(List(xs.to_owned()))),
       },
-      xs => Err(IpldError::Name(xs.to_owned())),
+      xs => Err(IpldError::ExpectedName(xs.to_owned())),
     }
   }
 }

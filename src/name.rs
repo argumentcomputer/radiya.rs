@@ -20,7 +20,6 @@ pub enum NamePart {
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Name {
-  pub system: bool,
   pub parts: Vector<NamePart>,
 }
 

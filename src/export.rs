@@ -1,4 +1,4 @@
-use crate::expression::Bind;
+use crate::expression::BinderInfo;
 
 use num_bigint::BigUint;
 use sp_im::vector::Vector;
@@ -79,9 +79,9 @@ pub enum Expr {
   /// #EA
   App { fun: EIdx, arg: EIdx },
   /// #EL
-  Lam { info: Bind, name: NIdx, typ: EIdx, bod: EIdx },
+  Lam { info: BinderInfo, name: NIdx, typ: EIdx, bod: EIdx },
   /// #EP
-  Pi { info: Bind, name: NIdx, typ: EIdx, bod: EIdx },
+  Pi { info: BinderInfo, name: NIdx, typ: EIdx, bod: EIdx },
   /// #EZ
   Let { name: NIdx, typ: EIdx, val: EIdx, bod: EIdx },
 }
@@ -89,12 +89,7 @@ pub enum Expr {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Decl {
   /// #DEF
-  Definition {
-    name: NIdx,
-    typ: EIdx,
-    val: EIdx,
-    levels: Vector<NIdx>,
-  },
+  Definition { name: NIdx, typ: EIdx, val: EIdx, levels: Vector<NIdx> },
   /// #IND
   Inductive {
     num_params: u64,
@@ -104,14 +99,9 @@ pub enum Decl {
     levels: Vector<NIdx>,
   },
   /// #AX
-  Axiom {
-    name: NIdx,
-    typ: EIdx,
-    levels: Vector<NIdx>,
-  },
+  Axiom { name: NIdx, typ: EIdx, levels: Vector<NIdx> },
   /// #QUOT
   Quotient,
-  Notation(Notation),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

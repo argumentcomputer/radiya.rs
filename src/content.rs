@@ -1,26 +1,25 @@
 pub mod bind;
 pub mod cid;
-pub mod decl;
+// pub mod decl;
 pub mod expr;
-pub mod ipld_error;
+pub mod ipld;
 pub mod name;
 pub mod univ;
 
-pub use cid::{
+pub use expr::Expr;
+pub use ipld::{
   DeclCid,
   ExprCid,
   NameCid,
   UnivCid,
 };
-pub use expr::Expr;
 pub use name::Name;
 pub use univ::Univ;
 
 use crate::{
   export,
-  expression::Bind,
+  expression::BinderInfo,
 };
-
 use alloc::{
   borrow::ToOwned,
   string::String,
@@ -48,37 +47,14 @@ use sp_std::{
 //  pub notations: Vec<Notation>,
 //  pub decls: BTreeMap<DeclCid, Decl>,
 //}
-//
-//#[derive(Clone, Debug, PartialEq, Eq)]
-// pub enum Decl {
-//  Definition {
-//    name: NameCid,
-//    typ: ExprCid,
-//    val: ExprCid,
-//    levels: Vector<NameCid>,
-//  },
-//  Inductive {
-//    num_params: u64,
-//    name: NameCid,
-//    typ: ExprCid,
-//    intros: Vector<(NameCid, ExprCid)>,
-//    levels: Vector<NameCid>,
-//  },
-//  Axiom {
-//    name: NameCid,
-//    typ: ExprCid,
-//    levels: Vector<NameCid>,
-//  },
-//  Quotient,
-//}
-//
-//#[derive(Clone, Debug, PartialEq, Eq)]
-// pub enum Notation {
-//  Prefix { name: NameCid, prec: u64, token: String },
-//  Infix { name: NameCid, prec: u64, token: String },
-//  Postfix { name: NameCid, prec: u64, token: String },
-//}
-//
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Notation {
+  Prefix { name: NameCid, prec: u64, token: String },
+  Infix { name: NameCid, prec: u64, token: String },
+  Postfix { name: NameCid, prec: u64, token: String },
+}
+
 #[cfg(test)]
 pub mod tests {
   use quickcheck::Gen;

@@ -10,7 +10,7 @@ use crate::{
     UIdx,
     Univ,
   },
-  expression::Bind,
+  expression::BinderInfo,
   parse::{
     error::{
       ParseError,
@@ -19,6 +19,7 @@ use crate::{
     span::Span,
     utils::{
       parse_integer,
+      parse_space,
       parse_space1,
       parse_text,
       parse_u64,
@@ -66,6 +67,7 @@ pub enum Command {
   Name(NIdx, Name),
   Expr(EIdx, Expr),
   Decl(Decl),
+  Notn(Notation),
 }
 
 type RefCtx = Rc<RefCell<Ctx>>;
@@ -112,8 +114,16 @@ pub fn parse_export(from: Span) -> IResult<Span, Ctx, ParseError<Span>> {
           ctx_mut.exprs.insert(eidx, decl);
         }
       }
-      _ => todo!(),
+      Command::Decl(decl) => {
+        let mut ctx_mut = ctx.borrow_mut();
+        ctx_mut.decls.push(decl);
+      }
+      Command::Notn(notn) => {
+        let mut ctx_mut = ctx.borrow_mut();
+        ctx_mut.notations.push(notn);
+      }
     }
+    let (i2, _) = parse_space(i2)?;
     let (i2, _) = newline(i2)?;
     i = i2;
     if let Ok((i, _)) = eof::<Span, ParseError<Span>>(i) {
@@ -129,6 +139,7 @@ pub fn parse_command(
   move |from: Span| {
     alt((
       parse_decl(ctx.clone()),
+      parse_notn(ctx.clone()),
       parse_name(ctx.clone()),
       parse_univ(ctx.clone()),
       parse_expr(ctx.clone()),
@@ -144,7 +155,6 @@ pub fn parse_decl(
       parse_definition(ctx.clone()),
       parse_inductive(ctx.clone()),
       parse_axiom(ctx.clone()),
-      parse_notation(ctx.clone()),
       parse_quot(),
     ))(i)?;
     return Ok((i, Command::Decl(res)));
@@ -196,6 +206,7 @@ pub fn parse_inductive(
       intros.push((intro_nam, intro_typ));
       i1 = i2
     }
+    let i = i1;
     let (i, levels) =
       many0(preceded(parse_space1, parse_nidx(ctx.clone())))(i)?;
     let intros = Vector::from(intros);
@@ -227,9 +238,9 @@ pub fn parse_axiom(
   }
 }
 
-pub fn parse_notation(
+pub fn parse_notn(
   ctx: RefCtx,
-) -> impl Fn(Span) -> IResult<Span, Decl, ParseError<Span>> {
+) -> impl Fn(Span) -> IResult<Span, Command, ParseError<Span>> {
   move |i: Span| {
     let (i, tag) = alt((tag("#PREFIX"), tag("#INFIX"), tag("#POSTFIX")))(i)?;
     let (i, _) = parse_space1(i)?;
@@ -244,7 +255,7 @@ pub fn parse_notation(
       "#POSTFIX" => Notation::Postfix { name, prec, token },
       _ => unreachable!(),
     };
-    return Ok((i, Decl::Notation(res)));
+    return Ok((i, Command::Notn(res)));
   }
 }
 
@@ -525,12 +536,12 @@ pub fn parse_expr_let(
   }
 }
 
-pub fn parse_bind(i: Span) -> IResult<Span, Bind, ParseError<Span>> {
+pub fn parse_bind(i: Span) -> IResult<Span, BinderInfo, ParseError<Span>> {
   alt((
-    value(Bind::Default, tag("#BD")),
-    value(Bind::Implicit, tag("#BI")),
-    value(Bind::Strict, tag("#BS")),
-    value(Bind::Class, tag("#BC")),
+    value(BinderInfo::Default, tag("#BD")),
+    value(BinderInfo::Implicit, tag("#BI")),
+    value(BinderInfo::StrictImplicit, tag("#BS")),
+    value(BinderInfo::InstImplicit, tag("#BC")),
   ))(i)
 }
 
@@ -697,7 +708,7 @@ pub mod tests {
     assert_eq!(
       res.unwrap().1,
       Command::Expr(EIdx(1), Expr::Lam {
-        info: Bind::Default,
+        info: BinderInfo::Default,
         name: NIdx(0),
         typ: EIdx(0),
         bod: EIdx(0)
@@ -708,7 +719,7 @@ pub mod tests {
     assert_eq!(
       res.unwrap().1,
       Command::Expr(EIdx(1), Expr::Pi {
-        info: Bind::Default,
+        info: BinderInfo::Default,
         name: NIdx(0),
         typ: EIdx(0),
         bod: EIdx(0)
@@ -789,5 +800,12 @@ pub mod tests {
       notations: Vec::new(),
       decls: Vec::new(),
     });
+  }
+  #[test]
+  fn test_parse_export_out() {
+    let export_out =
+      std::fs::read_to_string("export.out").expect("expected export.out");
+    let res = parse_export(Span::new(&export_out));
+    assert!(res.is_ok());
   }
 }

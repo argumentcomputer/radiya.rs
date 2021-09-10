@@ -620,9 +620,9 @@ dependencies = [
 
 [[package]]
 name = "sp-cid"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da843dbbf2ad94e34a4391b03123399dcd6a5339aa1884d5d81972d2ece64d41"
+checksum = "1f6679868c6e03b718cf153c5b63cf2003caea52e2883d827e257ff1d87a2518"
 dependencies = [
  "bytecursor",
  "multibase",
@@ -648,9 +648,8 @@ dependencies = [
 
 [[package]]
 name = "sp-ipld"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "989cc43356e8d4eeb42e5bc8b1a363e98c45cc8f026ea81d96790a2fc955b3a6"
+version = "0.1.2"
+source = "git+https://github.com/yatima-inc/sp-ipld?branch=main#434cd6b08b549d7088baf492c236cd32fa33808e"
 dependencies = [
  "base64",
  "bytecursor",
@@ -666,16 +665,15 @@ dependencies = [
 
 [[package]]
 name = "sp-multihash"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c74624433a8926e495041e78f8414771067895e0e2608c22b1771792714001ee"
+checksum = "467bd5355a48613e79954f91521f9a19313fc0c52d1ff8b9291aee1ae43a2909"
 dependencies = [
  "blake2b_simd",
  "blake2s_simd",
  "blake3",
  "bytecursor",
  "digest",
- "generic-array",
  "sha2",
  "sha3",
  "sp-multihash-derive",
@@ -685,9 +683,9 @@ dependencies = [
 
 [[package]]
 name = "sp-multihash-derive"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50f2fec51df320e33df53351cb5a11ca60257b4915f6a76efb667f2ea0662fc2"
+checksum = "854e6e8b041cde8578bb5efd6eacdd70f86aef22393e5a0f386991dc8fca45de"
 dependencies = [
  "proc-macro-crate",
  "proc-macro-error",

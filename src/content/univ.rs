@@ -1,9 +1,9 @@
-use crate::content::{
-  cid::{
-    NameCid,
-    UnivCid,
-  },
-  ipld_error::IpldError,
+use crate::content::ipld::{
+  IpldEmbed,
+  IpldError,
+  NameCid,
+  UnivCid,
+  UNIV,
 };
 use alloc::{
   borrow::ToOwned,
@@ -29,61 +29,65 @@ pub enum Univ {
   Param { name: NameCid },
 }
 
-impl Univ {
-  pub fn to_ipld(&self) -> Ipld {
+impl IpldEmbed for Univ {
+  const CODEC: u64 = UNIV;
+
+  fn to_ipld(&self) -> Ipld {
     match self {
       Self::Zero => Ipld::List(vec![Ipld::String(String::from("#UZ"))]),
-      Self::Succ { pred } => {
-        Ipld::List(vec![Ipld::String(String::from("#US")), Ipld::Link(pred.0)])
-      }
+      Self::Succ { pred } => Ipld::List(vec![
+        Ipld::String(String::from("#US")),
+        Ipld::Link(pred.to_dyn()),
+      ]),
       Self::Max { lhs, rhs } => Ipld::List(vec![
         Ipld::String(String::from("#UM")),
-        Ipld::Link(lhs.0),
-        Ipld::Link(rhs.0),
+        Ipld::Link(lhs.to_dyn()),
+        Ipld::Link(rhs.to_dyn()),
       ]),
       Self::IMax { lhs, rhs } => Ipld::List(vec![
         Ipld::String(String::from("#UIM")),
-        Ipld::Link(lhs.0),
-        Ipld::Link(rhs.0),
+        Ipld::Link(lhs.to_dyn()),
+        Ipld::Link(rhs.to_dyn()),
       ]),
-      Self::Param { name } => {
-        Ipld::List(vec![Ipld::String(String::from("#UP")), Ipld::Link(name.0)])
-      }
+      Self::Param { name } => Ipld::List(vec![
+        Ipld::String(String::from("#UP")),
+        Ipld::Link(name.to_dyn()),
+      ]),
     }
   }
 
-  pub fn cid(&self) -> UnivCid {
+  fn cid(&self) -> UnivCid {
     UnivCid::new(Code::Blake3_256.digest(
       DagCborCodec.encode(&self.to_ipld()).unwrap().into_inner().as_ref(),
     ))
   }
 
-  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     use Ipld::*;
     match ipld {
       List(xs) => match xs.as_slice() {
         [String(tag)] if tag == "#UZ" => Ok(Univ::Zero),
         [String(tag), Link(p)] if tag == "#US" => {
-          let pred = UnivCid::from_cid(*p)?;
+          let pred = UnivCid::from_dyn(p)?;
           Ok(Univ::Succ { pred })
         }
         [String(tag), Link(l), Link(r)] if tag == "#UM" => {
-          let lhs = UnivCid::from_cid(*l)?;
-          let rhs = UnivCid::from_cid(*r)?;
+          let lhs = UnivCid::from_dyn(l)?;
+          let rhs = UnivCid::from_dyn(r)?;
           Ok(Univ::Max { lhs, rhs })
         }
         [String(tag), Link(l), Link(r)] if tag == "#UIM" => {
-          let lhs = UnivCid::from_cid(*l)?;
-          let rhs = UnivCid::from_cid(*r)?;
+          let lhs = UnivCid::from_dyn(l)?;
+          let rhs = UnivCid::from_dyn(r)?;
           Ok(Univ::IMax { lhs, rhs })
         }
         [String(tag), Link(n)] if tag == "#UP" => {
-          let name = NameCid::from_cid(*n)?;
+          let name = NameCid::from_dyn(n)?;
           Ok(Univ::Param { name })
         }
-        xs => Err(IpldError::Univ(List(xs.to_owned()))),
+        xs => Err(IpldError::ExpectedUniv(List(xs.to_owned()))),
       },
-      xs => Err(IpldError::Univ(xs.to_owned())),
+      xs => Err(IpldError::ExpectedUniv(xs.to_owned())),
     }
   }
 }

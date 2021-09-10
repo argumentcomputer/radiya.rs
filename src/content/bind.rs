@@ -1,24 +1,26 @@
 use crate::{
-  content::ipld_error::IpldError,
-  expression::Bind,
+  content::ipld::IpldError,
+  expression::BinderInfo,
 };
 use sp_ipld::Ipld;
 
-pub fn bind_to_ipld(bind: &Bind) -> Ipld {
+pub fn bind_to_ipld(bind: &BinderInfo) -> Ipld {
   match bind {
-    Bind::Default => Ipld::Integer(0),
-    Bind::Implicit => Ipld::Integer(1),
-    Bind::Strict => Ipld::Integer(2),
-    Bind::Class => Ipld::Integer(3),
+    BinderInfo::Default => Ipld::Integer(0),
+    BinderInfo::Implicit => Ipld::Integer(1),
+    BinderInfo::StrictImplicit => Ipld::Integer(2),
+    BinderInfo::InstImplicit => Ipld::Integer(3),
+    BinderInfo::Rec => Ipld::Integer(4),
   }
 }
 
-pub fn bind_from_ipld(ipld: &Ipld) -> Result<Bind, IpldError> {
+pub fn bind_from_ipld(ipld: &Ipld) -> Result<BinderInfo, IpldError> {
   match ipld {
-    Ipld::Integer(0) => Ok(Bind::Default),
-    Ipld::Integer(1) => Ok(Bind::Implicit),
-    Ipld::Integer(2) => Ok(Bind::Strict),
-    Ipld::Integer(3) => Ok(Bind::Class),
-    _ => Err(IpldError::Bind(ipld.clone())),
+    Ipld::Integer(0) => Ok(BinderInfo::Default),
+    Ipld::Integer(1) => Ok(BinderInfo::Implicit),
+    Ipld::Integer(2) => Ok(BinderInfo::StrictImplicit),
+    Ipld::Integer(3) => Ok(BinderInfo::InstImplicit),
+    Ipld::Integer(4) => Ok(BinderInfo::Rec),
+    _ => Err(IpldError::ExpectedBinderInfo(ipld.clone())),
   }
 }

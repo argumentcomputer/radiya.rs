@@ -59,6 +59,7 @@ pub enum Decl {
     typ: ExprCid,
     val: ExprCid,
     levels: Vector<NameCid>,
+    is_unsafe: bool,
   },
   Quotient,
   Inductive {
