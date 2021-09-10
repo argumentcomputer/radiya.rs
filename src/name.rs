@@ -1,4 +1,5 @@
 use num_bigint::BigUint;
+use num_traits::{Zero, One};
 use sp_im::Vector;
 use sp_std::{borrow::Borrow, fmt, ops::Deref, rc::Rc, vec::Vec};
 
@@ -29,6 +30,12 @@ impl Name {
       system: false,
       parts: s.iter().map(|s| NamePart::Str(s.to_string())).collect(),
     }
+  }
+
+  pub fn append(&self, part: NamePart) -> Name {
+    let mut new = self.clone();
+    new.parts.push_back(part);
+    new
   }
 
   pub fn print(&self) -> String {
@@ -65,15 +72,21 @@ impl fmt::Display for Name {
 /// Generates unique names
 pub struct NameGenerator {
   prefix: Name,
-  next_index: u32,
+  next_index: BigUint,
 }
 
 impl NameGenerator {
   pub fn new(prefix: Name) -> Self {
     NameGenerator {
       prefix,
-      next_index: 0
+      next_index: Zero::zero()
     }
+  }
+
+  pub fn next(&mut self) -> Name {
+    let name = self.prefix.append(NamePart::Num(self.next_index.clone()));
+    self.next_index = &self.next_index + BigUint::one();
+    name
   }
 }
 

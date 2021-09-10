@@ -4,7 +4,10 @@ use crate::name::{
   NameGenerator,
 };
 use crate::{
-  declaration::ConstantInfo, environment, environment::Environment, local_context::LocalContext,
+  declaration::ConstantInfo,
+  environment,
+  environment::Environment,
+  local_context::LocalContext,
 };
 use alloc::string::String;
 use sp_im::Vector;
@@ -18,9 +21,7 @@ pub mod quot_consts {
 }
 
 pub fn check_eq_type(env: Environment) -> Result<(), String> {
-  let eq_info = env
-    .get(&Name::simple(&["Eq"]))
-    .ok_or("env does not have Eq constant")?;
+  let eq_info = env.get(&Name::simple(&["Eq"])).ok_or("env does not have Eq constant")?;
 
   match eq_info {
     ConstantInfo::Inductive(eq_val) => {
@@ -29,9 +30,7 @@ pub fn check_eq_type(env: Environment) -> Result<(), String> {
       Ok(())
     }
     _ => {
-      return Err(format!(
-        "failed to initialize quot module, environment does not have 'Eq' type"
-      ))
+      return Err(format!("failed to initialize quot module, environment does not have 'Eq' type"));
     }
   }
 }
