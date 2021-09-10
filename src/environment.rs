@@ -41,6 +41,12 @@ pub struct Environment {
   pub header: EnvironmentHeader,
 }
 
+impl Environment {
+  pub fn get(&self, name: &Name) -> Option<&ConstantInfo> {
+    self.constants.get(name)
+  }
+}
+
 pub enum KernelException {
   UnknownConstant {
     env: Environment,

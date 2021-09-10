@@ -26,9 +26,12 @@ pub struct Name {
 }
 
 impl Name {
+  
+  /// Simple shorthand
   pub fn simple(s: &[&str]) -> Self {
     Name { system: false, parts: s.iter().map(|s| NamePart::Str(s.to_string())).collect() }
   }
+
   pub fn print(&self) -> String {
     let mut res = String::new();
     let mut iter = self.parts.iter().peekable();
