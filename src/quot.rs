@@ -1,6 +1,12 @@
-use crate::name::Name;
 /// Quotient types
-use crate::{environment, environment::Environment};
+use crate::name::{
+  Name,
+  NameGenerator,
+};
+use crate::{
+  declaration::ConstantInfo, environment, environment::Environment, local_context::LocalContext,
+};
+use alloc::string::String;
 use sp_im::Vector;
 
 pub mod quot_consts {
@@ -11,17 +17,21 @@ pub mod quot_consts {
   // pub const g_quot_mk: Name = Name::simple(&["Quot", "mk"]);
 }
 
-pub fn check_eq_type(env: Environment) -> Result<(), ()> {
-  let eq_info = env.get(&Name::simple(&["Eq"]));
+pub fn check_eq_type(env: Environment) -> Result<(), String> {
+  let eq_info = env
+    .get(&Name::simple(&["Eq"]))
+    .ok_or("env does not have Eq constant")?;
 
-  if eq_info.is_inductive() {
-    return Err(format!(
-      "failed to initialize quot module, environment does not have 'Eq' type"
-    ))
+  match eq_info {
+    ConstantInfo::Inductive(eq_val) => {
+      let local_context = LocalContext::default();
+      let name_gen = NameGenerator::new(Name::empty());
+      Ok(())
+    }
+    _ => {
+      return Err(format!(
+        "failed to initialize quot module, environment does not have 'Eq' type"
+      ))
+    }
   }
-
-  let eq_val = eq_info.to_inductive_val();
-
-  Ok(())
-  
 }

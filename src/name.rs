@@ -1,17 +1,8 @@
 use num_bigint::BigUint;
 use sp_im::Vector;
-use sp_std::{
-  borrow::Borrow,
-  fmt,
-  ops::Deref,
-  rc::Rc,
-  vec::Vec,
-};
+use sp_std::{borrow::Borrow, fmt, ops::Deref, rc::Rc, vec::Vec};
 
-use alloc::string::{
-  String,
-  ToString,
-};
+use alloc::string::{String, ToString};
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum NamePart {
@@ -26,10 +17,18 @@ pub struct Name {
 }
 
 impl Name {
-  
-  /// Simple shorthand
+  pub fn empty() -> Self {
+    Name {
+      system: false,
+      parts: Vector::new(),
+    }
+  }
+  /// Simple shorthand for creating a Name
   pub fn simple(s: &[&str]) -> Self {
-    Name { system: false, parts: s.iter().map(|s| NamePart::Str(s.to_string())).collect() }
+    Name {
+      system: false,
+      parts: s.iter().map(|s| NamePart::Str(s.to_string())).collect(),
+    }
   }
 
   pub fn print(&self) -> String {
@@ -60,6 +59,21 @@ impl fmt::Debug for Name {
 impl fmt::Display for Name {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "{}", self.print())
+  }
+}
+
+/// Generates unique names
+pub struct NameGenerator {
+  prefix: Name,
+  next_index: u32,
+}
+
+impl NameGenerator {
+  pub fn new(prefix: Name) -> Self {
+    NameGenerator {
+      prefix,
+      next_index: 0
+    }
   }
 }
 
