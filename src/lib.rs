@@ -17,7 +17,7 @@ pub mod declaration;
 pub mod environment;
 pub mod local_context;
 // pub mod inductive;
-pub mod quot;
+pub mod quotation;
 // pub mod notation;
 // pub mod content;
 // pub mod export;

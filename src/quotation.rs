@@ -1,16 +1,23 @@
-/// Quotient types
-use crate::name::{
-  Name,
-  NameGenerator,
-};
 use crate::{
   declaration::ConstantInfo,
   environment,
   environment::Environment,
-  local_context::LocalContext,
+  local_context::{
+    LocalContext,
+    LocalDecl,
+  },
+  name::{
+    Name,
+    NameGenerator,
+  },
+  universe::Univ,
 };
 use alloc::string::String;
+use num_bigint::BigUint;
+use num_traits::Zero;
 use sp_im::Vector;
+
+/// Quotient types
 
 pub mod quot_consts {
   use crate::name::Name;
@@ -21,16 +28,21 @@ pub mod quot_consts {
 }
 
 pub fn check_eq_type(env: Environment) -> Result<(), String> {
-  let eq_info = env.get(&Name::simple(&["Eq"])).ok_or("env does not have Eq constant")?;
+  let eq = Name::simple(&["Eq"]);
+  let eq_info = env.get(&eq).ok_or("env does not have Eq constant")?;
 
   match eq_info {
     ConstantInfo::Inductive(eq_val) => {
       let local_context = LocalContext::default();
       let name_gen = NameGenerator::new(Name::empty());
+      let level = Univ::Param(eq);
+      let alpha = local_context.add_local_decl_with_value(Name::simple(&["α"]), make_sort(level));
       Ok(())
     }
-    _ => {
-      return Err(format!("failed to initialize quot module, environment does not have 'Eq' type"));
-    }
+    _ => Err(format!(
+      "failed to initialize quot module,environment does not have an inductive 'Eq' type"
+    )),
   }
 }
+
+pub fn add_quot(env: &Environment) {}
