@@ -1,5 +1,6 @@
 use crate::{
   kvmap::KVMap,
+  name,
   name::Name,
   universe::Univ,
 };
@@ -36,11 +37,26 @@ pub enum Expr {
   Const(Name, Vector<Univ>),
   App(Rc<Expr>, Rc<Expr>),
   Lam(Name, BinderInfo, Rc<Expr>, Rc<Expr>),
-  Pi(Name, BinderInfo, Rc<Expr>, Rc<Expr>),
+  Pi { name: Name, binder_info: BinderInfo, from: Rc<Expr>, to: Rc<Expr> },
   Let(Name, Rc<Expr>, Rc<Expr>, Rc<Expr>),
   Lit(Literal),
   MData(KVMap, Rc<Expr>),
   Proj(Name, BigUint, Rc<Expr>),
+}
+/// Short hand for creating a named sort
+#[macro_export]
+macro_rules! sort {
+  ( $ctx:expr ) => {
+    Expr::Sort(Univ::Param(name!($ctx)))
+  };
+}
+
+/// Short hand for App node
+#[macro_export]
+macro_rules! app {
+  ( $op:expr, $arg:expr ) => {
+    Expr::App(Rc::new($op), Rc::new($arg))
+  };
 }
 
 #[cfg(test)]
