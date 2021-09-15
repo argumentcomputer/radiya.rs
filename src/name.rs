@@ -1,9 +1,21 @@
 use num_bigint::BigUint;
-use num_traits::{Zero, One};
+use num_traits::{
+  One,
+  Zero,
+};
 use sp_im::Vector;
-use sp_std::{borrow::Borrow, fmt, ops::Deref, rc::Rc, vec::Vec};
+use sp_std::{
+  borrow::Borrow,
+  fmt,
+  ops::Deref,
+  rc::Rc,
+  vec::Vec,
+};
 
-use alloc::string::{String, ToString};
+use alloc::string::{
+  String,
+  ToString,
+};
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum NamePart {
@@ -17,18 +29,11 @@ pub struct Name {
 }
 
 impl Name {
-  pub fn empty() -> Self {
-    Name {
-      system: false,
-      parts: Vector::new(),
-    }
-  }
+  pub fn empty() -> Self { Name { parts: Vector::new() } }
+
   /// Simple shorthand for creating a Name
   pub fn simple(s: &[&str]) -> Self {
-    Name {
-      system: false,
-      parts: s.iter().map(|s| NamePart::Str(s.to_string())).collect(),
-    }
+    Name { parts: s.iter().map(|s| NamePart::Str(s.to_string())).collect() }
   }
 
   pub fn append(&self, part: NamePart) -> Name {
@@ -76,10 +81,7 @@ pub struct NameGenerator {
 
 impl NameGenerator {
   pub fn new(prefix: Name) -> Self {
-    NameGenerator {
-      prefix,
-      next_index: Zero::zero()
-    }
+    NameGenerator { prefix, next_index: Zero::zero() }
   }
 
   pub fn next(&mut self) -> Name {
@@ -91,7 +93,9 @@ impl NameGenerator {
 
 #[macro_export]
 macro_rules! name {
-    ( $ctx:expr ) => { Name::simple(&[$ctx]) };
+  ( $ctx:expr ) => {
+    Name::simple(&[$ctx])
+  };
 }
 
 // impl AsRef<str> for Name {
