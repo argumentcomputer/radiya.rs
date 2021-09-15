@@ -90,6 +90,11 @@ impl NameGenerator {
   }
 }
 
+#[macro_export]
+macro_rules! name {
+    ( $ctx:expr ) => { Name::simple(&[$ctx]) };
+}
+
 // impl AsRef<str> for Name {
 //  fn as_ref(&self) -> &str { self.inner.as_ref() }
 //}

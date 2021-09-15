@@ -70,7 +70,7 @@ impl Default for LocalContext {
 
 impl LocalContext {
 
-  pub fn add_local_decl_with_value(&self, name: Name, user_name: Name, typ: Expr, value: Expr) {
+  pub fn add_local_decl_with_value(&mut self, name: Name, user_name: Name, typ: Expr, value: Expr) -> LocalDecl {
     let index = &self.current_index + BigUint::one();
     let local_decl = LocalDecl::LDecl {
         index,
@@ -78,12 +78,25 @@ impl LocalContext {
         user_name,
         typ,
         value,
-    }
-    self.add_local_decl(local_decl);
+    };
+    self.add_local_decl(local_decl)
   }
 
-  pub fn add_local_decl(&self, local_decl: LocalDecl) {
-    self.fvar_id_to_decl.insert(local_decl.name(), local_decl);
-    self.decls.push_back(Some(local_decl)); 
+  pub fn add_local_decl_with_binding(&mut self, name: Name, user_name: Name, typ: Expr, bi: BinderInfo) -> LocalDecl {
+    let index = &self.current_index + BigUint::one();
+    let local_decl = LocalDecl::CDecl {
+        index,
+        name,
+        user_name,
+        typ,
+        bi,
+    };
+    self.add_local_decl(local_decl)
+  }
+
+  pub fn add_local_decl(&mut self, local_decl: LocalDecl) -> LocalDecl {
+    self.fvar_id_to_decl.insert(local_decl.name(), local_decl.clone());
+    self.decls.push_back(Some(local_decl.clone())); 
+    local_decl
   }
 }
