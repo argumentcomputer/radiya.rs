@@ -45,6 +45,10 @@ impl Environment {
   pub fn get(&self, name: &Name) -> Option<&ConstantInfo> {
     self.constants.get(name)
   }
+
+  pub fn add_constant(&mut self, constant: ConstantInfo) {
+    self.constants.insert(constant.name(), constant);
+  }
 }
 
 pub enum KernelException {

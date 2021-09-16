@@ -39,7 +39,7 @@ pub mod quot_consts {
   // pub const g_quot_mk: Name = Name::simple(&["Quot", "mk"]);
 }
 
-pub fn add_quot(env: &Environment) -> Result<(), String> {
+pub fn add_quot(env: &mut Environment) -> Result<(), String> {
   let eq = name!("Eq");
   let eq_info = env.get(&eq).ok_or("env does not have Eq constant")?;
 
@@ -81,6 +81,7 @@ pub fn add_quot(env: &Environment) -> Result<(), String> {
         typ: quot_typ,
         kind: QuotKind::Type,
       });
+      env.
       // new_env.add_core(constant_info(quot_val(*quot_consts::g_quot, {u_name},
       // lctx.mk_pi({alpha, r}, Sort_u), quot_kind::Type))); expr quot_r
       // = mk_app(mk_constant(*quot_consts::g_quot, {u}), alpha, r);

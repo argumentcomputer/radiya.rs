@@ -148,3 +148,18 @@ pub enum ConstantInfo {
   Constructor(ConstructorVal),
   Recursor(RecursorVal),
 }
+
+impl ConstantInfo {
+  pub fn name(&self) -> Name {
+    match self {
+      ConstantInfo::Axiom(AxiomVal { name, .. }) => name.clone(),
+      ConstantInfo::Definition(DefinitionVal { name, .. }) => name.clone(),
+      ConstantInfo::Theorem(TheoremVal { name, .. }) => name.clone(),
+      ConstantInfo::Opaque(OpaqueVal{ name, .. }) => name.clone(),
+      ConstantInfo::Quot(QuotVal{ name, .. } )=> name.clone(),
+      ConstantInfo::Inductive(InductiveVal { name, .. }) => name.clone(),
+      ConstantInfo::Constructor(ConstructorVal { name, .. }) => name.clone(),
+      ConstantInfo::Recursor(RecursorVal { name, .. }) => name.clone(),
+    }
+  }
+}
