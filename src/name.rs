@@ -92,7 +92,7 @@ impl NameGenerator {
 
 #[macro_export]
 macro_rules! name {
-    ( $ctx:expr ) => { Name::simple(&[$ctx]) };
+    ( $($ctx:expr),+ ) => { Name::simple(&[$($ctx),+]) };
 }
 
 // impl AsRef<str> for Name {

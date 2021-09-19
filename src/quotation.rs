@@ -65,11 +65,11 @@ pub fn add_quot(env: &mut Environment) -> Result<(), String> {
       let quot_typ = Expr::Pi {
         name: Name::empty(),
         binder_info: BinderInfo::Implicit,
-        from: Rc::new(alpha),
+        from: Rc::new(alpha.clone()),
         to: Rc::new(Expr::Pi {
           name: Name::empty(),
           binder_info: BinderInfo::Default,
-          from: Rc::new(quot_r),
+          from: Rc::new(quot_r.clone()),
           to: Rc::new(sort_u.clone()),
         }),
       };
@@ -81,7 +81,29 @@ pub fn add_quot(env: &mut Environment) -> Result<(), String> {
         typ: quot_typ,
         kind: QuotKind::Type,
       });
-      env.
+      env.add_constant(quot_info);
+      
+      // quot.mk : Π {α : Sort u} (r : α → α → Prop), α → @quot α r
+      let quot_mk_typ = Expr::Pi {
+        name: Name::empty(),
+        binder_info: BinderInfo::Implicit,
+        from: Rc::new(alpha),
+        to: Rc::new(Expr::Pi {
+          name: Name::empty(),
+          binder_info: BinderInfo::Default,
+          from: Rc::new(quot_r),
+          to: Rc::new(sort_u.clone()),
+        }),
+      };
+      
+      let quot_mk = ConstantInfo::Quot(QuotVal {
+        name: name!("quot", "mk"),
+        level_params: vector![name!("u")],
+        typ: quot_mk_typ,
+        kind: QuotKind::Ctor,
+      });
+      env.add_constant(quot_mk);
+
       // new_env.add_core(constant_info(quot_val(*quot_consts::g_quot, {u_name},
       // lctx.mk_pi({alpha, r}, Sort_u), quot_kind::Type))); expr quot_r
       // = mk_app(mk_constant(*quot_consts::g_quot, {u}), alpha, r);
