@@ -1,2 +1,5 @@
-target
-result*
+*.olean
+/_target
+/leanpkg.path
+/build
+/build
