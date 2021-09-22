@@ -16,7 +16,7 @@ pub enum Literal {
   Nat(BigUint),
   Str(String),
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinderInfo {
   Default,
   Implicit,
@@ -30,11 +30,11 @@ pub struct MData {}
 
 #[derive(Clone, Debug)]
 pub enum Expr {
-  BVar(BigUint),
-  FVar(Name),
+  BVar(usize),
+  FVar(usize),
   MVar(Name),
-  Sort(Univ),
-  Const(Name, Vector<Univ>),
+  Sort(Rc<Univ>),
+  Const(Name, Vector<Rc<Univ>>),
   App(Rc<Expr>, Rc<Expr>),
   Lam(Name, BinderInfo, Rc<Expr>, Rc<Expr>),
   Pi { name: Name, binder_info: BinderInfo, from: Rc<Expr>, to: Rc<Expr> },
