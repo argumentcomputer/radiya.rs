@@ -12,6 +12,21 @@ pub enum ReducibilityHints {
   Regular(u32),
 }
 
+pub enum Declaration {
+  Axiom(AxiomVal),
+  Definition(DefinitionVal),
+  Theorem(TheoremVal),
+  Opaque(OpaqueVal),
+  Quot,
+  MutualDefn(Vector<DefinitionVal>),
+  Inductive {
+    lparams: Vector<Name>,
+    nparams: BigUint,
+    types: Vector<InductiveType>,
+    is_unsafe: bool,
+  },
+}
+
 pub struct ConstantVal {
   pub name: Name,
   pub level_params: Vector<Name>,
@@ -64,21 +79,6 @@ pub struct InductiveType {
   pub name: Name,
   pub typ: Expr,
   pub ctors: Vector<Constructor>,
-}
-
-pub enum Declaration {
-  Axiom(AxiomVal),
-  Definition(DefinitionVal),
-  Theorem(TheoremVal),
-  Opaque(OpaqueVal),
-  Quot,
-  MutualDefn(Vector<DefinitionVal>),
-  Inductive {
-    lparams: Vector<Name>,
-    nparams: BigUint,
-    types: Vector<InductiveType>,
-    is_unsafe: bool,
-  },
 }
 
 pub struct InductiveVal {

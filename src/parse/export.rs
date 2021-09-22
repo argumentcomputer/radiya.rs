@@ -66,8 +66,8 @@ pub enum Command {
   Univ(UIdx, Univ),
   Name(NIdx, Name),
   Expr(EIdx, Expr),
-  Decl(Decl),
   Notn(Notation),
+  Decl(Decl),
 }
 
 type RefCtx = Rc<RefCell<Ctx>>;

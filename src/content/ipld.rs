@@ -42,7 +42,7 @@ pub type NameCid = Cid<NAME>;
 pub type NotnCid = Cid<NOTN>;
 pub type UnivCid = Cid<UNIV>;
 pub type ExprCid = Cid<EXPR>;
-pub type DeclCid = Cid<DECL>;
+pub type CnstCid = Cid<DECL>;
 
 pub trait IpldEmbed: Sized {
   const CODEC: u64;

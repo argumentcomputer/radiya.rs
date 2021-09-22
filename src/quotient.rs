@@ -47,8 +47,8 @@ pub fn add_quot(env: &Environment) -> Result<(), String> {
     ConstantInfo::Inductive(eq_val) => {
       let mut local_context = LocalContext::default();
       let name_gen = NameGenerator::new(Name::empty());
-      let sort_u = Expr::Sort(Univ::Param(name!("u")));
-      let sort_v = Expr::Sort(Univ::Param(name!("v")));
+      let sort_u = Expr::Sort(Rc::new(Univ::Param(name!("u"))));
+      let sort_v = Expr::Sort(Rc::new(Univ::Param(name!("v"))));
       let alpha_decl = local_context.add_local_decl_with_binding(
         name!("α"),
         name!("a"),
@@ -56,23 +56,23 @@ pub fn add_quot(env: &Environment) -> Result<(), String> {
         BinderInfo::Implicit,
       );
       let alpha = Expr::FVar(name!("α"));
-      let quot_r = Expr::Pi {
-        name: name!("r"),
-        binder_info: BinderInfo::Default,
-        from: Rc::new(alpha.clone()),
-        to: Rc::new(alpha.clone()),
-      };
-      let quot_typ = Expr::Pi {
-        name: Name::empty(),
-        binder_info: BinderInfo::Implicit,
-        from: Rc::new(alpha),
-        to: Rc::new(Expr::Pi {
-          name: Name::empty(),
-          binder_info: BinderInfo::Default,
-          from: Rc::new(quot_r),
-          to: Rc::new(sort_u.clone()),
-        }),
-      };
+      let quot_r = Expr::Pi(
+        name!("r"),
+        BinderInfo::Default,
+        Rc::new(alpha.clone()),
+        Rc::new(alpha.clone()),
+      );
+      let quot_typ = Expr::Pi(
+        Name::empty(),
+        BinderInfo::Implicit,
+        Rc::new(alpha),
+        Rc::new(Expr::Pi(
+          Name::empty(),
+          BinderInfo::Default,
+          Rc::new(quot_r),
+          Rc::new(sort_u.clone()),
+        )),
+      );
 
       // constant {u} quot {α : Sort u} (r : α → α → Prop) : Sort u
       let quot_info = ConstantInfo::Quot(QuotVal {
@@ -85,10 +85,10 @@ pub fn add_quot(env: &Environment) -> Result<(), String> {
       // lctx.mk_pi({alpha, r}, Sort_u), quot_kind::Type))); expr quot_r
       // = mk_app(mk_constant(*quot_consts::g_quot, {u}), alpha, r);
       // expr a          = lctx.mk_local_decl(g, "a", alpha);
-      // constant {u} quot.mk {α : Sort u} (r : α → α → Prop) (a : α) : @quot.{u} α r
-      // new_env.add_core(constant_info(quot_val(*quot_consts::g_quot_mk, {u_name},
-      // lctx.mk_pi({alpha, r, a}, quot_r), quot_kind::Mk)));
-      // make r implicit
+      // constant {u} quot.mk {α : Sort u} (r : α → α → Prop) (a : α) :
+      // @quot.{u} α r new_env.add_core(constant_info(quot_val(*
+      // quot_consts::g_quot_mk, {u_name}, lctx.mk_pi({alpha, r, a},
+      // quot_r), quot_kind::Mk))); make r implicit
       // lctx = local_ctx();
       // alpha           = lctx.mk_local_decl(g, "α", Sort_u,
       // mk_implicit_binder_info()); r               =
@@ -114,30 +114,32 @@ pub fn add_quot(env: &Environment) -> Result<(), String> {
       // mk_app(f, b));
       // (∀ a b : α, r a b → f a = f b)
       // expr sanity     = lctx.mk_pi({a, b}, mk_arrow(r_a_b, f_a_eq_f_b));
-      // constant {u v} quot.lift {α : Sort u} {r : α → α → Prop} {β : Sort v} (f : α
-      // → β) : (∀ a b : α, r a b → f a = f b) →  @quot.{u} α r → β
-      // new_env.add_core(constant_info(quot_val(*quot_consts::g_quot_lift, {u_name,
-      // v_name},
-      // lctx.mk_pi({alpha, r, beta, f}, mk_arrow(sanity, mk_arrow(quot_r, beta))),
-      // quot_kind::Lift)));
+      // constant {u v} quot.lift {α : Sort u} {r : α → α → Prop} {β : Sort v}
+      // (f : α → β) : (∀ a b : α, r a b → f a = f b) →  @quot.{u} α r → β
+      // new_env.add_core(constant_info(quot_val(*quot_consts::g_quot_lift,
+      // {u_name, v_name},
+      // lctx.mk_pi({alpha, r, beta, f}, mk_arrow(sanity, mk_arrow(quot_r,
+      // beta))), quot_kind::Lift)));
       // {β : @quot.{u} α r → Prop}
-      // beta            = lctx.mk_local_decl(g, "β", mk_arrow(quot_r, mk_Prop()),
-      // mk_implicit_binder_info()); expr quot_mk_a  =
+      // beta            = lctx.mk_local_decl(g, "β", mk_arrow(quot_r,
+      // mk_Prop()), mk_implicit_binder_info()); expr quot_mk_a  =
       // mk_app(mk_constant(*quot_consts::g_quot_mk, {u}), alpha, r, a);
       // expr all_quot   = lctx.mk_pi(a, mk_app(beta, quot_mk_a));
       // expr q          = lctx.mk_local_decl(g, "q", quot_r);
       // expr beta_q     = mk_app(beta, q);
-      // constant {u} quot.ind {α : Sort u} {r : α → α → Prop} {β : @quot.{u} α r →
-      // Prop} : (∀ a : α, β (@quot.mk.{u} α r a)) → ∀ q : @quot.{u} α r,
-      // β q
-      // new_env.add_core(constant_info(quot_val(*quot_consts::g_quot_ind, {u_name},
-      //                                         lctx.mk_pi({alpha, r, beta},
-      // mk_pi("mk", all_quot, lctx.mk_pi(q, beta_q))), quot_kind::Ind)));
+      // constant {u} quot.ind {α : Sort u} {r : α → α → Prop} {β : @quot.{u} α
+      // r → Prop} : (∀ a : α, β (@quot.mk.{u} α r a)) → ∀ q : @quot.{u} α
+      // r, β q
+      // new_env.add_core(constant_info(quot_val(*quot_consts::g_quot_ind,
+      // {u_name},
+      // lctx.mk_pi({alpha, r, beta}, mk_pi("mk", all_quot, lctx.mk_pi(q,
+      // beta_q))), quot_kind::Ind)));
 
       Ok(())
     }
     _ => Err(format!(
-      "failed to initialize quot module,environment does not have an inductive 'Eq' type"
+      "failed to initialize quot module,environment does not have an \
+       inductive 'Eq' type"
     )),
   }
 }

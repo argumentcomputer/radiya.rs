@@ -12,6 +12,8 @@ use sp_std::{
   vec::Vec,
 };
 
+use crate::export;
+
 use alloc::string::{
   String,
   ToString,
@@ -20,7 +22,7 @@ use alloc::string::{
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum NamePart {
   Str(String),
-  Num(BigUint),
+  Int(BigUint),
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -54,10 +56,14 @@ impl Name {
       }
       match p {
         NamePart::Str(s) => res.push_str(s),
-        NamePart::Num(n) => res.push_str(&format!("{}", n)),
+        NamePart::Int(n) => res.push_str(&format!("{}", n)),
       }
     }
     res
+  }
+
+  pub fn from_unique(num: usize) -> Self {
+    Name { parts: Vector::from(vec![NamePart::Int(num.into())]) }
   }
 }
 
@@ -85,7 +91,7 @@ impl NameGenerator {
   }
 
   pub fn next(&mut self) -> Name {
-    let name = self.prefix.append(NamePart::Num(self.next_index.clone()));
+    let name = self.prefix.append(NamePart::Int(self.next_index.clone()));
     self.next_index = &self.next_index + BigUint::one();
     name
   }

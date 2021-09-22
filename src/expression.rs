@@ -26,23 +26,21 @@ pub enum BinderInfo {
 }
 
 #[derive(Clone, Debug)]
-pub struct MData {}
-
-#[derive(Clone, Debug)]
 pub enum Expr {
   BVar(usize),
-  FVar(usize),
+  FVar(Name),
   MVar(Name),
   Sort(Rc<Univ>),
   Const(Name, Vector<Rc<Univ>>),
   App(Rc<Expr>, Rc<Expr>),
   Lam(Name, BinderInfo, Rc<Expr>, Rc<Expr>),
-  Pi { name: Name, binder_info: BinderInfo, from: Rc<Expr>, to: Rc<Expr> },
+  Pi(Name, BinderInfo, Rc<Expr>, Rc<Expr>),
   Let(Name, Rc<Expr>, Rc<Expr>, Rc<Expr>),
   Lit(Literal),
   MData(KVMap, Rc<Expr>),
   Proj(Name, BigUint, Rc<Expr>),
 }
+
 /// Short hand for creating a named sort
 #[macro_export]
 macro_rules! sort {

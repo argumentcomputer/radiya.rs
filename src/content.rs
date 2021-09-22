@@ -1,43 +1,43 @@
-pub mod bind;
-pub mod cid;
+// pub mod bind;
+// pub mod cid;
 // pub mod decl;
-pub mod expr;
+// pub mod expr;
 pub mod ipld;
-pub mod name;
-pub mod univ;
+// pub mod name;
+// pub mod univ;
 
-pub use expr::Expr;
-pub use ipld::{
-  DeclCid,
-  ExprCid,
-  NameCid,
-  UnivCid,
-};
-pub use name::Name;
-pub use univ::Univ;
-
-use crate::{
-  export,
-  expression::BinderInfo,
-};
-use alloc::{
-  borrow::ToOwned,
-  string::String,
-};
-use num_bigint::BigUint;
-use sp_ipld::{
-  dag_cbor::DagCborCodec,
-  Codec,
-  Ipld,
-};
-use sp_multihash::{
-  Code,
-  MultihashDigest,
-};
-use sp_std::{
-  collections::btree_map::BTreeMap,
-  vec::Vec,
-};
+// pub use expr::Expr;
+// pub use ipld::{
+//  DeclCid,
+//  ExprCid,
+//  NameCid,
+//  UnivCid,
+//};
+// pub use name::Name;
+// pub use univ::Univ;
+//
+// use crate::{
+//  export,
+//  expression::BinderInfo,
+//};
+// use alloc::{
+//  borrow::ToOwned,
+//  string::String,
+//};
+// use num_bigint::BigUint;
+// use sp_ipld::{
+//  dag_cbor::DagCborCodec,
+//  Codec,
+//  Ipld,
+//};
+// use sp_multihash::{
+//  Code,
+//  MultihashDigest,
+//};
+// use sp_std::{
+//  collections::btree_map::BTreeMap,
+//  vec::Vec,
+//};
 
 //#[derive(Clone, PartialEq, Eq, Debug)]
 // pub struct Ctx {
@@ -47,14 +47,14 @@ use sp_std::{
 //  pub notations: Vec<Notation>,
 //  pub decls: BTreeMap<DeclCid, Decl>,
 //}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Notation {
-  Prefix { name: NameCid, prec: u64, token: String },
-  Infix { name: NameCid, prec: u64, token: String },
-  Postfix { name: NameCid, prec: u64, token: String },
-}
-
+//
+//#[derive(Clone, Debug, PartialEq, Eq)]
+// pub enum Notation {
+//  Prefix { name: NameCid, prec: u64, token: String },
+//  Infix { name: NameCid, prec: u64, token: String },
+//  Postfix { name: NameCid, prec: u64, token: String },
+//}
+//
 #[cfg(test)]
 pub mod tests {
   use quickcheck::Gen;
