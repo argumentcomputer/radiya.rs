@@ -59,7 +59,7 @@ macro_rules! app {
 
 #[cfg(test)]
 pub mod tests {
-  use crate::content::tests::frequency;
+  use crate::tests::frequency;
 
   use super::*;
   use quickcheck::{

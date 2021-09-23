@@ -12,7 +12,6 @@ use crate::{
     ConstantInfo,
     Declaration,
   },
-  export::Notation,
   expression::Expr,
   local_context::LocalContext,
   name::Name,
@@ -20,7 +19,7 @@ use crate::{
 
 pub struct Environment {
   pub constants: BTreeMap<Name, ConstantInfo>,
-  pub notations: BTreeMap<Name, Notation>,
+  // pub notations: BTreeMap<Name, Notation>,
   pub quot_init: bool,
 }
 

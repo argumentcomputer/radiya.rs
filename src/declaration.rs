@@ -5,7 +5,7 @@ use crate::{
 use num_bigint::BigUint;
 use sp_im::Vector;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ReducibilityHints {
   Opaque,
   Abbrev,
@@ -40,6 +40,7 @@ pub struct AxiomVal {
   pub is_unsafe: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DefinitionSafety {
   Unsafe,
   Safe,

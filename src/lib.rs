@@ -20,18 +20,17 @@ pub mod declaration;
 pub mod environment;
 pub mod local_context;
 // pub mod inductive;
-pub mod content;
-pub mod export;
+pub mod format;
 pub mod quotient;
 // pub mod notation;
 // pub mod content;
 // pub mod export;
-pub mod expression;
 pub mod check;
+pub mod expression;
 pub mod kvmap;
 pub mod name;
 // pub mod notation;
-pub mod parse;
+// pub mod parse;
 pub mod universe;
 
 #[cfg(test)]
@@ -41,6 +40,8 @@ mod tests {
     Arbitrary,
     Gen,
   };
+
+  use rand::Rng;
   use sp_std::ops::Range;
 
   pub fn gen_range(g: &mut Gen, range: Range<usize>) -> usize {
@@ -58,5 +59,26 @@ mod tests {
       let v: Vec<u8> = Arbitrary::arbitrary(g);
       BigUint::from_bytes_be(&v)
     })
+  }
+  pub fn frequency<T, F: Fn(&mut Gen) -> T>(
+    g: &mut Gen,
+    gens: sp_std::vec::Vec<(i64, F)>,
+  ) -> T {
+    if gens.iter().any(|(v, _)| *v < 0) {
+      panic!("Negative weight");
+    }
+    let sum: i64 = gens.iter().map(|x| x.0).sum();
+    let mut rng = rand::thread_rng();
+    let mut weight: i64 = rng.gen_range(1..=sum);
+    // let mut weight: i64 = g.rng.gen_range(1, sum);
+    for gen in gens {
+      if weight - gen.0 <= 0 {
+        return gen.1(g);
+      }
+      else {
+        weight -= gen.0;
+      }
+    }
+    panic!("Calculation error for weight = {}", weight);
   }
 }
