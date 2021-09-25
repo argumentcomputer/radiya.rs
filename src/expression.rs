@@ -30,7 +30,7 @@ pub struct MData {}
 #[derive(Clone, Debug)]
 pub enum Expr {
   BVar(usize),
-  FVar(usize),
+  FVar(usize, Name, BinderInfo, Rc<Expr>),
   MVar(Name),
   Sort(Rc<Univ>),
   Const(Name, Vector<Rc<Univ>>),
