@@ -8,7 +8,10 @@ use crate::{
   expression::Expr,
 };
 
-use sp_std::vec::Vec;
+use sp_std::{
+  collections::btree_map::BTreeMap,
+  vec::Vec,
+};
 use sp_im::vector::Vector;
 use sp_std::rc::Rc;
 
@@ -94,6 +97,7 @@ pub fn subst_bulk(bod: Rc<Expr>, ini: usize, vals: &[Rc<Expr>]) -> Rc<Expr> {
 }
 
 pub fn whnf_unfold(
+  tc : &TypeChecker,
   top_node: Rc<Expr>
 ) -> (Rc<Expr>, Vec<Rc<Expr>>) {
   let mut node = top_node;
@@ -130,6 +134,70 @@ pub fn whnf_unfold(
         node = Rc::new(Expr::Sort(simplify(lvl)));
         break;
       },
+      Expr::Const(nam, lvls) => {
+        let Recursor {
+          name,
+          uparams,
+          type_,
+          all_names,
+          num_params,
+          num_indices,
+          num_motives,
+          num_minors,
+          major_idx,
+          rec_rules,
+          is_k,
+          is_unsafe,
+        } = match tc.declars.get(&nam).expect("Undefined constant") {
+          Declaration::Recursor(rec) => rec,
+          Declaration::Quot {..} => todo!(),
+          Declaration::Definition {..} => todo!(),
+          _ => break,
+        };
+
+        let major = match args.get(*major_idx as usize) {
+          Some(major) => major,
+          None => break,
+        };
+        if lvls.len() != uparams.len() {
+          break;
+        }
+
+        let (major_head, major_args) =
+          if !is_k {
+            whnf_unfold(tc, major.clone())
+          } else {
+            todo!()
+          };
+
+        let rule = {
+          let c_nam = match &*major_head {
+            Expr::Const(nam, _) => nam.clone(),
+            _ => break,
+          };
+          rec_rules.iter().find(
+            |RecRule { cnstr_name, .. }|
+            cnstr_name.clone() == c_nam.clone()
+          ).expect("Undefined recursion rule")
+        };
+
+        let take_size = num_params + num_motives + num_minors;
+        let num_params = match major_args.len().checked_sub(rule.num_fields as usize) {
+          Some(num) => num,
+          None => break,
+        };
+        let start = major_args.len() - num_params - rule.num_fields as usize;
+        let end = major_args.len() - num_params;
+        let end_args = &major_args[start .. end];
+        // let end_apps = major_args.skip(num_params, tc).take(rule.num_fields as usize, tc);
+
+        // let r = subst_bulk(rule.val, recursor.uparams(), c_levels)
+        //   .foldl_apps(args.take(take_size as usize, tc), tc)
+        //   .foldl_apps(end_apps, tc)
+        //   .foldl_apps(args.skip((recursor.rec_major_idx()? + 1) as usize, tc), tc);
+        // node = r;
+        todo!()
+      }
       _ => break,
     }
   }
@@ -149,13 +217,15 @@ pub fn fold_args(
 
 #[inline]
 pub fn whnf(
+  tc : &TypeChecker,
   node: Rc<Expr>,
 ) -> Rc<Expr> {
-  let (head, args) = whnf_unfold(node);
+  let (head, args) = whnf_unfold(tc, node);
   fold_args(head, args)
 }
 
 pub fn equal(
+  tc : &TypeChecker,
   expr_a: &Rc<Expr>,
   expr_b: &Rc<Expr>,
   unique: &mut usize,
@@ -168,30 +238,30 @@ pub fn equal(
   if is_proof_irrel(expr_a, expr_b) {
     return true
   }
-  let (head_a, args_a) = whnf_unfold(expr_a.clone());
-  let (head_b, args_b) = whnf_unfold(expr_b.clone());
+  let (head_a, args_a) = whnf_unfold(tc, expr_a.clone());
+  let (head_b, args_b) = whnf_unfold(tc, expr_b.clone());
   match (&*head_a, &*head_b) {
     (Expr::Lam(a_nam, a_bnd, a_dom, a_bod), Expr::Lam(_, _, b_dom, b_bod)) => {
-      if equal(a_dom, b_dom, unique) {
+      if equal(tc, a_dom, b_dom, unique) {
         let f_var = Rc::new(
           Expr::FVar(*unique, a_nam.clone(), *a_bnd, a_dom.clone())
         );
         let a_bod = subst(a_bod.clone(), 0, f_var.clone());
         let b_bod = subst(b_bod.clone(), 0, f_var);
         *unique = *unique + 1;
-        return equal(&a_bod, &b_bod, unique)
+        return equal(tc, &a_bod, &b_bod, unique)
       }
       false
     }
     (Expr::Pi(a_nam, a_bnd, a_dom, a_bod), Expr::Pi(_, _, b_dom, b_bod)) => {
-      if equal(a_dom, b_dom, unique) {
+      if equal(tc, a_dom, b_dom, unique) {
         let f_var = Rc::new(
           Expr::FVar(*unique, a_nam.clone(), *a_bnd, a_dom.clone())
         );
         let a_bod = subst(a_bod.clone(), 0, f_var.clone());
         let b_bod = subst(b_bod.clone(), 0, f_var);
         *unique = *unique + 1;
-        return equal(&a_bod, &b_bod, unique)
+        return equal(tc, &a_bod, &b_bod, unique)
       }
       false
     }
@@ -203,7 +273,7 @@ pub fn equal(
     }
     (Expr::Const(nam_a, lvls_a), Expr::Const(nam_b, lvls_b)) => {
       if nam_a == nam_b && lvls_a.iter().zip(lvls_b).all(|(a, b)| is_same_level(a, b)) {
-        return args_a.iter().zip(args_b).all(|(a, b)| equal(&a, &b, unique))
+        return args_a.iter().zip(args_b).all(|(a, b)| equal(tc, &a, &b, unique))
       }
       false
     }
@@ -214,7 +284,7 @@ pub fn equal(
       *unique = *unique + 1;
       let a_bod = subst(a_bod.clone(), 0, f_var.clone());
       let b_bod = Rc::new(Expr::App(fold_args(head_b, args_b), f_var));
-      equal(&a_bod, &b_bod, unique)
+      equal(tc, &a_bod, &b_bod, unique)
     }
     (_, Expr::Lam(b_nam, b_bnd, b_dom, b_bod)) => {
       let f_var = Rc::new(
@@ -223,7 +293,7 @@ pub fn equal(
       *unique = *unique + 1;
       let b_bod = subst(b_bod.clone(), 0, f_var.clone());
       let a_bod = Rc::new(Expr::App(fold_args(head_a, args_a), f_var));
-      equal(&a_bod, &b_bod, unique)
+      equal(tc, &a_bod, &b_bod, unique)
     }
     _ => false
   }
@@ -235,4 +305,94 @@ pub fn is_proof_irrel(
 ) -> bool {
   // TODO
   false
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ReducibilityHint {
+    Opaq,
+    Reg(u16),
+    Abbrev,
+}
+
+#[derive(Debug, Clone)]
+pub struct RecRule {
+    pub cnstr_name : Name,
+    pub num_fields : u16,
+    pub val : Rc<Expr>
+}
+
+#[derive(Debug, Clone)]
+pub enum Declaration {
+  Axiom {
+    name : Name,
+    uparams : Vector<Univ>,
+    type_ : Rc<Expr>,
+    is_unsafe : bool,
+  },
+  Definition {
+    name : Name,
+    uparams : Vector<Univ>,
+    type_ : Rc<Expr>,
+    val : Rc<Expr>,
+    hint : ReducibilityHint,
+    is_unsafe : bool,
+  },
+  Theorem {
+    name : Name,
+    uparams : Vector<Univ>,
+    type_ : Rc<Expr>,
+    val : Rc<Expr>,
+  },
+  Opaque {
+    name : Name,
+    uparams : Vector<Univ>,
+    type_ : Rc<Expr>,
+    val : Rc<Expr>,
+  },
+  Quot {
+    name : Name,
+    uparams : Vector<Univ>,
+    type_ : Rc<Expr>,
+  },
+  Inductive {
+    name : Name,
+    uparams : Vector<Univ>,
+    type_ : Rc<Expr>,
+    num_params : u16,
+    all_ind_names : Vector<Name>,
+    all_cnstr_names : Vector<Name>,
+    //pub is_rec : bool,
+    //pub is_reflexive : bool,
+    is_unsafe : bool,
+  },
+  Constructor {
+    name : Name,
+    uparams : Vector<Univ>,
+    type_ : Rc<Expr>,
+    parent_name : Name,
+    num_fields : u16,
+    num_params : u16,
+    is_unsafe : bool,
+  },
+  Recursor(Recursor),
+}
+
+#[derive(Debug, Clone)]
+pub struct Recursor {
+  name : Name,
+  uparams : Vector<Univ>,
+  type_ : Rc<Expr>,
+  all_names : Vector<Name>,
+  num_params : u16,
+  num_indices : u16,
+  num_motives : u16,
+  num_minors : u16,
+  major_idx : u16,
+  rec_rules : Vector<RecRule>,
+  is_k : bool,
+  is_unsafe : bool,
+}
+
+pub struct TypeChecker {
+  declars: BTreeMap<Name, Declaration>,
 }

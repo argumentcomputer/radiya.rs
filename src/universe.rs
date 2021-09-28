@@ -12,9 +12,9 @@ pub enum Univ {
   Param(Name),
 }
 
-pub fn simplify(lvl: &Rc<Univ>) -> Rc<Univ> {
-  match &**lvl {
-    Univ::Zero | Univ::Param(..) => lvl.clone(),
+pub fn simplify(lvl: &Univ) -> Rc<Univ> {
+  match lvl {
+    Univ::Zero | Univ::Param(..) => Rc::new(lvl.clone()),
     Univ::Succ(lvl) => Rc::new(Univ::Succ(simplify(lvl))),
     Univ::Max(a, b) => Rc::new(Univ::Max(simplify(a), simplify(b))),
     Univ::IMax(a, b) => {
@@ -38,8 +38,8 @@ pub fn combining(lvl: &Rc<Univ>, other: &Rc<Univ>) -> Rc<Univ> {
 }
 
 pub fn is_same_level(
-  lvl_a: &Rc<Univ>,
-  lvl_b: &Rc<Univ>,
+  lvl_a: &Univ,
+  lvl_b: &Univ,
 ) -> bool {
   let lvl_a = simplify(lvl_a);
   let lvl_b = simplify(lvl_b);

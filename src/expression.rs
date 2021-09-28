@@ -33,7 +33,7 @@ pub enum Expr {
   FVar(usize, Name, BinderInfo, Rc<Expr>),
   MVar(Name),
   Sort(Rc<Univ>),
-  Const(Name, Vector<Rc<Univ>>),
+  Const(Name, Vector<Univ>),
   App(Rc<Expr>, Rc<Expr>),
   Lam(Name, BinderInfo, Rc<Expr>, Rc<Expr>),
   Pi(Name, BinderInfo, Rc<Expr>, Rc<Expr>),
