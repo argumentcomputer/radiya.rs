@@ -56,8 +56,34 @@ pub fn subst(bod: Rc<Expr>, ini: usize, val: Rc<Expr>) -> Rc<Expr> {
   }
 }
 
+pub fn subst_lvl(vars: &Vector<Name>, map: &Vector<Univ>, lvl: &Rc<Univ>) -> Rc<Univ> {
+  match &**lvl {
+    Univ::Zero => lvl.clone(),
+    Univ::Succ(pred) => {
+      let pred = subst_lvl(vars, map, pred);
+      Rc::new(Univ::Succ(pred))
+    },
+    Univ::Max(left, right) => {
+      let left = subst_lvl(vars, map, left);
+      let right = subst_lvl(vars, map, right);
+      Rc::new(Univ::Max(left, right))
+    },
+    Univ::IMax(left, right) => {
+      let left = subst_lvl(vars, map, left);
+      let right = subst_lvl(vars, map, right);
+      Rc::new(Univ::IMax(left, right))
+    }
+    Univ::Param(nam) => {
+      match vars.iter().position(|var| var == nam) {
+        Some(pos) => Rc::new(map[pos].clone()),
+        None => lvl.clone(),
+      }
+    }
+  }
+}
+
 // Analogously, assumes `vals` has no unbound `BVar` nodes
-pub fn subst_bulk(bod: Rc<Expr>, ini: usize, vals: &[Rc<Expr>]) -> Rc<Expr> {
+pub fn subst_bulk(bod: Rc<Expr>, ini: usize, vals: &[Rc<Expr>], u_vars: &Vector<Name>, u_map: &Vector<Univ>) -> Rc<Expr> {
   match &*bod {
     Expr::BVar(idx) => {
       if *idx < ini {
@@ -72,26 +98,30 @@ pub fn subst_bulk(bod: Rc<Expr>, ini: usize, vals: &[Rc<Expr>]) -> Rc<Expr> {
       }
     }
     Expr::Lam(nam, bnd, dom, bod) => {
-      let bod = subst_bulk(bod.clone(), ini+1, vals);
-      let dom = subst_bulk(dom.clone(), ini, vals);
+      let bod = subst_bulk(bod.clone(), ini+1, vals, u_vars, u_map);
+      let dom = subst_bulk(dom.clone(), ini, vals, u_vars, u_map);
       Rc::new(Expr::Lam(nam.clone(), *bnd, dom, bod))
     }
     Expr::App(fun, arg) => {
-      let fun = subst_bulk(fun.clone(), ini, vals);
-      let arg = subst_bulk(arg.clone(), ini, vals);
+      let fun = subst_bulk(fun.clone(), ini, vals, u_vars, u_map);
+      let arg = subst_bulk(arg.clone(), ini, vals, u_vars, u_map);
       Rc::new(Expr::App(fun, arg))
     }
     Expr::Pi(nam, bnd, dom, img) => {
-      let dom = subst_bulk(dom.clone(), ini, vals);
-      let img = subst_bulk(img.clone(), ini+1, vals);
+      let dom = subst_bulk(dom.clone(), ini, vals, u_vars, u_map);
+      let img = subst_bulk(img.clone(), ini+1, vals, u_vars, u_map);
       Rc::new(Expr::Pi(nam.clone(), *bnd, dom, img))
     }
     Expr::Let(nam, typ, exp, bod) => {
-      let typ = subst_bulk(typ.clone(), ini, vals);
-      let exp = subst_bulk(exp.clone(), ini, vals);
-      let bod = subst_bulk(bod.clone(), ini+1, vals);
+      let typ = subst_bulk(typ.clone(), ini, vals, u_vars, u_map);
+      let exp = subst_bulk(exp.clone(), ini, vals, u_vars, u_map);
+      let bod = subst_bulk(bod.clone(), ini+1, vals, u_vars, u_map);
       Rc::new(Expr::Let(nam.clone(), typ, exp, bod))
     }
+    Expr::Sort(lvl) if !u_vars.is_empty() => {
+      let new_lvl = subst_lvl(u_vars, u_map, lvl);
+      Rc::new(Expr::Sort(new_lvl))
+    },
     _ => bod,
   }
 }
@@ -120,7 +150,7 @@ pub fn whnf_unfold(
             },
             _ => {
               let subst_args = &args[args.len() - lams .. args.len()];
-              node = subst_bulk(bod.clone(), 0, subst_args);
+              node = subst_bulk(bod.clone(), 0, subst_args, &Vector::new(), &Vector::new());
               args.truncate(args.len() - lams);
               break;
             },
@@ -138,16 +168,13 @@ pub fn whnf_unfold(
         let Recursor {
           name,
           uparams,
-          type_,
-          all_names,
           num_params,
-          num_indices,
           num_motives,
           num_minors,
-          major_idx,
+          num_indices,
           rec_rules,
           is_k,
-          is_unsafe,
+          ..
         } = match tc.declars.get(&nam).expect("Undefined constant") {
           Declaration::Recursor(rec) => rec,
           Declaration::Quot {..} => todo!(),
@@ -155,13 +182,12 @@ pub fn whnf_unfold(
           _ => break,
         };
 
-        let major = match args.get(*major_idx as usize) {
-          Some(major) => major,
-          None => break,
-        };
-        if lvls.len() != uparams.len() {
+        let take_size = num_params + num_motives + num_minors;
+        let major_idx = take_size + num_indices;
+        if lvls.len() != uparams.len() || args.len() <= major_idx {
           break;
         }
+        let major = &args[args.len() - 1 - major_idx];
 
         let (major_head, major_args) =
           if !is_k {
@@ -170,33 +196,23 @@ pub fn whnf_unfold(
             todo!()
           };
 
-        let rule = {
-          let c_nam = match &*major_head {
-            Expr::Const(nam, _) => nam.clone(),
-            _ => break,
-          };
-          rec_rules.iter().find(
-            |RecRule { cnstr_name, .. }|
-            cnstr_name.clone() == c_nam.clone()
-          ).expect("Undefined recursion rule")
+        let c_nam = match &*major_head {
+          Expr::Const(c_nam, _) => c_nam.clone(),
+          _ => break,
         };
+        let rule = rec_rules.iter().find(
+          |RecRule { cnstr_name, .. }|
+          *cnstr_name == c_nam
+        ).expect("Undefined recursion rule");
+        if rule.elim_name != *name || major_args.len() != num_params + rule.num_fields {
+          break
+        }
 
-        let take_size = num_params + num_motives + num_minors;
-        let num_params = match major_args.len().checked_sub(rule.num_fields as usize) {
-          Some(num) => num,
-          None => break,
-        };
-        let start = major_args.len() - num_params - rule.num_fields as usize;
-        let end = major_args.len() - num_params;
-        let end_args = &major_args[start .. end];
-        // let end_apps = major_args.skip(num_params, tc).take(rule.num_fields as usize, tc);
-
-        // let r = subst_bulk(rule.val, recursor.uparams(), c_levels)
-        //   .foldl_apps(args.take(take_size as usize, tc), tc)
-        //   .foldl_apps(end_apps, tc)
-        //   .foldl_apps(args.skip((recursor.rec_major_idx()? + 1) as usize, tc), tc);
-        // node = r;
-        todo!()
+        let mut subst = args[args.len() - take_size .. args.len()].to_vec();
+        subst.extend_from_slice(&major_args[0 .. rule.num_fields]);
+        let r = subst_bulk(rule.val.clone(), 0, &subst, uparams, lvls);
+        node = r;
+        args.truncate(args.len() - 1 - major_idx);
       }
       _ => break,
     }
@@ -317,7 +333,8 @@ pub enum ReducibilityHint {
 #[derive(Debug, Clone)]
 pub struct RecRule {
     pub cnstr_name : Name,
-    pub num_fields : u16,
+    pub elim_name : Name,
+    pub num_fields : usize,
     pub val : Rc<Expr>
 }
 
@@ -380,14 +397,14 @@ pub enum Declaration {
 #[derive(Debug, Clone)]
 pub struct Recursor {
   name : Name,
-  uparams : Vector<Univ>,
+  uparams : Vector<Name>,
   type_ : Rc<Expr>,
   all_names : Vector<Name>,
-  num_params : u16,
-  num_indices : u16,
-  num_motives : u16,
-  num_minors : u16,
-  major_idx : u16,
+  num_params : usize,
+  num_indices : usize,
+  num_motives : usize,
+  num_minors : usize,
+  major_idx : usize,
   rec_rules : Vector<RecRule>,
   is_k : bool,
   is_unsafe : bool,
