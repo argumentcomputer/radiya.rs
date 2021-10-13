@@ -5,9 +5,10 @@ use crate::{
     simplify,
     is_same_level,
   },
-  expression::Expr,
+  expression::*,
 };
 
+use alloc::string::String;
 use sp_std::{
   collections::btree_map::BTreeMap,
   vec::Vec,
@@ -15,16 +16,51 @@ use sp_std::{
 use sp_im::vector::Vector;
 use sp_std::rc::Rc;
 
+pub fn abstr(bod: Rc<Expr>, dep: usize, idx: usize) -> Rc<Expr> {
+  match &*bod {
+    Expr::FVar(jdx, ..) => {
+      if idx == *jdx {
+        Rc::new(Expr::BVar(dep))
+      }
+      else {
+        bod
+      }
+    }
+    Expr::Lam(nam, bnd, dom, bod) => {
+      let bod = abstr(bod.clone(), dep+1, idx);
+      let dom = abstr(dom.clone(), dep, idx);
+      Rc::new(Expr::Lam(nam.clone(), *bnd, dom, bod))
+    }
+    Expr::App(fun, arg) => {
+      let fun = abstr(fun.clone(), dep, idx);
+      let arg = abstr(arg.clone(), dep, idx);
+      Rc::new(Expr::App(fun, arg))
+    }
+    Expr::Pi(nam, bnd, dom, img) => {
+      let dom = abstr(dom.clone(), dep, idx);
+      let img = abstr(img.clone(), dep+1, idx);
+      Rc::new(Expr::Pi(nam.clone(), *bnd, dom, img))
+    }
+    Expr::Let(nam, typ, exp, bod) => {
+      let typ = abstr(typ.clone(), dep, idx);
+      let exp = abstr(exp.clone(), dep, idx);
+      let bod = abstr(bod.clone(), dep+1, idx);
+      Rc::new(Expr::Let(nam.clone(), typ, exp, bod))
+    }
+    _ => bod,
+  }
+}
+
 // Assumes `val` has no unbound `BVar` nodes; i.e., that they have been
 // replaced by `FVar` nodes
-pub fn subst(bod: Rc<Expr>, ini: usize, val: Rc<Expr>) -> Rc<Expr> {
+pub fn subst(bod: Rc<Expr>, dep: usize, val: Rc<Expr>) -> Rc<Expr> {
   match &*bod {
     Expr::BVar(idx) => {
-      if *idx < ini {
+      if *idx < dep {
         bod
       }
       // This should always be the case if we are not reducing inner lambdas
-      else if ini == *idx {
+      else if dep == *idx {
         val
       }
       else {
@@ -32,24 +68,24 @@ pub fn subst(bod: Rc<Expr>, ini: usize, val: Rc<Expr>) -> Rc<Expr> {
       }
     }
     Expr::Lam(nam, bnd, dom, bod) => {
-      let bod = subst(bod.clone(), ini+1, val.clone());
-      let dom = subst(dom.clone(), ini, val);
+      let bod = subst(bod.clone(), dep+1, val.clone());
+      let dom = subst(dom.clone(), dep, val);
       Rc::new(Expr::Lam(nam.clone(), *bnd, dom, bod))
     }
     Expr::App(fun, arg) => {
-      let fun = subst(fun.clone(), ini, val.clone());
-      let arg = subst(arg.clone(), ini, val);
+      let fun = subst(fun.clone(), dep, val.clone());
+      let arg = subst(arg.clone(), dep, val);
       Rc::new(Expr::App(fun, arg))
     }
     Expr::Pi(nam, bnd, dom, img) => {
-      let dom = subst(dom.clone(), ini, val.clone());
-      let img = subst(img.clone(), ini+1, val);
+      let dom = subst(dom.clone(), dep, val.clone());
+      let img = subst(img.clone(), dep+1, val);
       Rc::new(Expr::Pi(nam.clone(), *bnd, dom, img))
     }
     Expr::Let(nam, typ, exp, bod) => {
-      let typ = subst(typ.clone(), ini, val.clone());
-      let exp = subst(exp.clone(), ini, val.clone());
-      let bod = subst(bod.clone(), ini+1, val);
+      let typ = subst(typ.clone(), dep, val.clone());
+      let exp = subst(exp.clone(), dep, val.clone());
+      let bod = subst(bod.clone(), dep+1, val);
       Rc::new(Expr::Let(nam.clone(), typ, exp, bod))
     }
     _ => bod,
@@ -83,39 +119,39 @@ pub fn subst_lvl(vars: &Vector<Name>, map: &Vector<Univ>, lvl: &Rc<Univ>) -> Rc<
 }
 
 // Analogously, assumes `vals` has no unbound `BVar` nodes
-pub fn subst_bulk(bod: Rc<Expr>, ini: usize, vals: &[Rc<Expr>], u_vars: &Vector<Name>, u_map: &Vector<Univ>) -> Rc<Expr> {
+pub fn subst_bulk(bod: Rc<Expr>, dep: usize, vals: &[Rc<Expr>], u_vars: &Vector<Name>, u_map: &Vector<Univ>) -> Rc<Expr> {
   match &*bod {
     Expr::BVar(idx) => {
-      if *idx < ini {
+      if *idx < dep {
         bod
       }
       // This should always be the case if we are not reducing inner lambdas
-      else if *idx < ini+vals.len() {
-        vals[idx-ini].clone()
+      else if *idx < dep+vals.len() {
+        vals[idx-dep].clone()
       }
       else {
         Rc::new(Expr::BVar(*idx-vals.len()))
       }
     }
     Expr::Lam(nam, bnd, dom, bod) => {
-      let bod = subst_bulk(bod.clone(), ini+1, vals, u_vars, u_map);
-      let dom = subst_bulk(dom.clone(), ini, vals, u_vars, u_map);
+      let bod = subst_bulk(bod.clone(), dep+1, vals, u_vars, u_map);
+      let dom = subst_bulk(dom.clone(), dep, vals, u_vars, u_map);
       Rc::new(Expr::Lam(nam.clone(), *bnd, dom, bod))
     }
     Expr::App(fun, arg) => {
-      let fun = subst_bulk(fun.clone(), ini, vals, u_vars, u_map);
-      let arg = subst_bulk(arg.clone(), ini, vals, u_vars, u_map);
+      let fun = subst_bulk(fun.clone(), dep, vals, u_vars, u_map);
+      let arg = subst_bulk(arg.clone(), dep, vals, u_vars, u_map);
       Rc::new(Expr::App(fun, arg))
     }
     Expr::Pi(nam, bnd, dom, img) => {
-      let dom = subst_bulk(dom.clone(), ini, vals, u_vars, u_map);
-      let img = subst_bulk(img.clone(), ini+1, vals, u_vars, u_map);
+      let dom = subst_bulk(dom.clone(), dep, vals, u_vars, u_map);
+      let img = subst_bulk(img.clone(), dep+1, vals, u_vars, u_map);
       Rc::new(Expr::Pi(nam.clone(), *bnd, dom, img))
     }
     Expr::Let(nam, typ, exp, bod) => {
-      let typ = subst_bulk(typ.clone(), ini, vals, u_vars, u_map);
-      let exp = subst_bulk(exp.clone(), ini, vals, u_vars, u_map);
-      let bod = subst_bulk(bod.clone(), ini+1, vals, u_vars, u_map);
+      let typ = subst_bulk(typ.clone(), dep, vals, u_vars, u_map);
+      let exp = subst_bulk(exp.clone(), dep, vals, u_vars, u_map);
+      let bod = subst_bulk(bod.clone(), dep+1, vals, u_vars, u_map);
       Rc::new(Expr::Let(nam.clone(), typ, exp, bod))
     }
     Expr::Sort(lvl) if !u_vars.is_empty() => {
@@ -127,7 +163,7 @@ pub fn subst_bulk(bod: Rc<Expr>, ini: usize, vals: &[Rc<Expr>], u_vars: &Vector<
 }
 
 pub fn whnf_unfold(
-  tc : &TypeChecker,
+  tc: &TypeChecker,
   top_node: Rc<Expr>
 ) -> (Rc<Expr>, Vec<Rc<Expr>>) {
   let mut node = top_node;
@@ -233,7 +269,7 @@ pub fn fold_args(
 
 #[inline]
 pub fn whnf(
-  tc : &TypeChecker,
+  tc: &TypeChecker,
   node: Rc<Expr>,
 ) -> Rc<Expr> {
   let (head, args) = whnf_unfold(tc, node);
@@ -241,10 +277,10 @@ pub fn whnf(
 }
 
 pub fn equal(
-  tc : &TypeChecker,
+  tc: &TypeChecker,
+  uniq: &mut usize,
   expr_a: &Rc<Expr>,
   expr_b: &Rc<Expr>,
-  unique: &mut usize,
 ) -> bool {
   // Short circuit if they're the same pointer
   if Rc::as_ptr(expr_a) == Rc::as_ptr(expr_b) {
@@ -258,26 +294,26 @@ pub fn equal(
   let (head_b, args_b) = whnf_unfold(tc, expr_b.clone());
   match (&*head_a, &*head_b) {
     (Expr::Lam(a_nam, a_bnd, a_dom, a_bod), Expr::Lam(_, _, b_dom, b_bod)) => {
-      if equal(tc, a_dom, b_dom, unique) {
+      if equal(tc, uniq, a_dom, b_dom) {
         let f_var = Rc::new(
-          Expr::FVar(*unique, a_nam.clone(), *a_bnd, a_dom.clone())
+          Expr::FVar(*uniq, a_nam.clone(), *a_bnd, a_dom.clone())
         );
         let a_bod = subst(a_bod.clone(), 0, f_var.clone());
         let b_bod = subst(b_bod.clone(), 0, f_var);
-        *unique = *unique + 1;
-        return equal(tc, &a_bod, &b_bod, unique)
+        *uniq = *uniq + 1;
+        return equal(tc, uniq, &a_bod, &b_bod)
       }
       false
     }
     (Expr::Pi(a_nam, a_bnd, a_dom, a_bod), Expr::Pi(_, _, b_dom, b_bod)) => {
-      if equal(tc, a_dom, b_dom, unique) {
+      if equal(tc, uniq, a_dom, b_dom) {
         let f_var = Rc::new(
-          Expr::FVar(*unique, a_nam.clone(), *a_bnd, a_dom.clone())
+          Expr::FVar(*uniq, a_nam.clone(), *a_bnd, a_dom.clone())
         );
         let a_bod = subst(a_bod.clone(), 0, f_var.clone());
         let b_bod = subst(b_bod.clone(), 0, f_var);
-        *unique = *unique + 1;
-        return equal(tc, &a_bod, &b_bod, unique)
+        *uniq = *uniq + 1;
+        return equal(tc, uniq, &a_bod, &b_bod)
       }
       false
     }
@@ -289,27 +325,27 @@ pub fn equal(
     }
     (Expr::Const(nam_a, lvls_a), Expr::Const(nam_b, lvls_b)) => {
       if nam_a == nam_b && lvls_a.iter().zip(lvls_b).all(|(a, b)| is_same_level(a, b)) {
-        return args_a.iter().zip(args_b).all(|(a, b)| equal(tc, &a, &b, unique))
+        return args_a.iter().zip(args_b).all(|(a, b)| equal(tc, uniq, &a, &b))
       }
       false
     }
     (Expr::Lam(a_nam, a_bnd, a_dom, a_bod), _) => {
       let f_var = Rc::new(
-        Expr::FVar(*unique, a_nam.clone(), *a_bnd, a_dom.clone())
+        Expr::FVar(*uniq, a_nam.clone(), *a_bnd, a_dom.clone())
       );
-      *unique = *unique + 1;
+      *uniq = *uniq + 1;
       let a_bod = subst(a_bod.clone(), 0, f_var.clone());
       let b_bod = Rc::new(Expr::App(fold_args(head_b, args_b), f_var));
-      equal(tc, &a_bod, &b_bod, unique)
+      equal(tc, uniq, &a_bod, &b_bod)
     }
     (_, Expr::Lam(b_nam, b_bnd, b_dom, b_bod)) => {
       let f_var = Rc::new(
-        Expr::FVar(*unique, b_nam.clone(), *b_bnd, b_dom.clone())
+        Expr::FVar(*uniq, b_nam.clone(), *b_bnd, b_dom.clone())
       );
-      *unique = *unique + 1;
+      *uniq = *uniq + 1;
       let b_bod = subst(b_bod.clone(), 0, f_var.clone());
       let a_bod = Rc::new(Expr::App(fold_args(head_a, args_a), f_var));
-      equal(tc, &a_bod, &b_bod, unique)
+      equal(tc, uniq, &a_bod, &b_bod)
     }
     _ => false
   }
@@ -412,4 +448,115 @@ pub struct Recursor {
 
 pub struct TypeChecker {
   declars: BTreeMap<Name, Declaration>,
+}
+
+#[derive(Debug)]
+pub enum CheckError {
+  GenericError(String)
+}
+
+pub fn check(tc: &TypeChecker, uniq: &mut usize, term: &Rc<Expr>, typ: &Rc<Expr>) -> Result<(), CheckError> {
+  let inferred = infer(tc, uniq, term)?;
+  if equal(tc, uniq, typ, &inferred) {
+    Ok(())
+  }
+  else {
+    Err(CheckError::GenericError(format!("Wrong type")))
+  }
+}
+
+pub fn infer(
+  tc: &TypeChecker,
+  uniq: &mut usize,
+  term : &Rc<Expr>
+) -> Result<Rc<Expr>, CheckError> {
+  let result = match &**term {
+    Expr::Sort(lvl) => {
+      let new_lvl = Rc::new(Expr::Sort(Rc::new(Univ::Succ(lvl.clone()))));
+      Ok(new_lvl)
+    },
+    Expr::Const(name, lvls) => infer_const(name, lvls),
+    Expr::FVar(.., typ) => Ok(typ.clone()),
+    Expr::App(fun, arg) => infer_app(tc, uniq, fun, arg),
+    Expr::Lam(nam, bnd, dom, bod) => infer_lambda(tc, uniq, nam, bnd, dom, bod),
+    Expr::Pi(..) => infer_pi(term),
+    Expr::Let(_, dom, val, body) => infer_let(tc, uniq, dom, val, body),
+    other => {
+      let msg = format!(
+        "tc line {}; infer function got a variable term, but that should never happen. received this term : {:?}\n",
+        line!(), other
+      );
+      Err(CheckError::GenericError(msg))
+    },
+  };
+  result
+}
+
+#[inline]
+pub fn infer_universe_of_type(tc: &TypeChecker, uniq: &mut usize, term : &Rc<Expr>) -> Result<Rc<Univ>, CheckError> {
+  let typ = infer(tc, uniq, term)?;
+  match &*whnf(tc, typ) {
+    Expr::Sort(lvl) => Ok(lvl.clone()),
+    _ => {
+      let msg = format!("Domain of the function should be a type");
+      return Err(CheckError::GenericError(msg))
+    }
+  }
+}
+
+#[inline]
+pub fn infer_lambda(
+  tc: &TypeChecker,
+  uniq: &mut usize,
+  nam: &Name,
+  bnd: &BinderInfo,
+  dom: &Rc<Expr>,
+  bod: &Rc<Expr>
+) -> Result<Rc<Expr>, CheckError> {
+  infer_universe_of_type(tc, uniq, dom)?;
+  let new_var = Rc::new(Expr::FVar(*uniq, nam.clone(), bnd.clone(), dom.clone()));
+  let new_var_idx = *uniq;
+  *uniq = *uniq + 1;
+  let new_bod = subst(bod.clone(), 0, new_var);
+  let infer_typ_bod = infer(tc, uniq, &new_bod)?;
+  let infer_typ_bod = abstr(infer_typ_bod, 0, new_var_idx);
+  Ok(Rc::new(Expr::Lam(nam.clone(), bnd.clone(), dom.clone(), infer_typ_bod)))
+}
+
+#[inline]
+fn infer_app(
+  tc: &TypeChecker,
+  uniq: &mut usize,
+  fun: &Rc<Expr>,
+  arg: &Rc<Expr>
+) -> Result<Rc<Expr>, CheckError> {
+  let fun_typ = infer(tc, uniq, &fun)?;
+  match &*whnf(tc, fun_typ) {
+    Expr::Pi(nam, bnd, dom, img) => {
+      check(tc, uniq, &arg, &dom)?;
+      let app_typ = subst(img.clone(), 0, arg.clone());
+      Ok(app_typ)
+    }
+    _ => Err(CheckError::GenericError(
+      format!("Tried to apply an expression which is not a function")
+    )),
+  }
+}
+
+#[inline]
+pub fn infer_pi(term : &Expr) -> Result<Rc<Expr>, CheckError> {
+  todo!()
+}
+
+#[inline]
+pub fn infer_const(name : &Name, levels : &Vector<Univ>) -> Result<Rc<Expr>, CheckError> {
+  todo!()
+}
+
+#[inline]
+pub fn infer_let(tc: &TypeChecker, uniq: &mut usize, dom : &Rc<Expr>, val : &Rc<Expr>, body : &Rc<Expr>) -> Result<Rc<Expr>, CheckError> {
+  infer_universe_of_type(tc, uniq, dom)?;
+  check(tc, uniq, val, dom)?;
+  let instd_body = subst(body.clone(), 0, val.clone());
+  infer(tc, uniq, &instd_body)
 }
