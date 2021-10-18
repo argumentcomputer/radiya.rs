@@ -479,7 +479,7 @@ pub fn infer(
     Expr::FVar(.., typ) => Ok(typ.clone()),
     Expr::App(fun, arg) => infer_app(tc, uniq, fun, arg),
     Expr::Lam(nam, bnd, dom, bod) => infer_lambda(tc, uniq, nam, bnd, dom, bod),
-    Expr::Pi(..) => infer_pi(term),
+    Expr::Pi(nam, bnd, dom, img) => infer_pi(tc, uniq, nam, bnd, dom, img),
     Expr::Let(_, dom, val, body) => infer_let(tc, uniq, dom, val, body),
     other => {
       let msg = format!(
@@ -532,7 +532,7 @@ fn infer_app(
 ) -> Result<Rc<Expr>, CheckError> {
   let fun_typ = infer(tc, uniq, &fun)?;
   match &*whnf(tc, fun_typ) {
-    Expr::Pi(nam, bnd, dom, img) => {
+    Expr::Pi(_, _, dom, img) => {
       check(tc, uniq, &arg, &dom)?;
       let app_typ = subst(img.clone(), 0, arg.clone());
       Ok(app_typ)
@@ -544,8 +544,21 @@ fn infer_app(
 }
 
 #[inline]
-pub fn infer_pi(term : &Expr) -> Result<Rc<Expr>, CheckError> {
-  todo!()
+pub fn infer_pi(
+  tc: &TypeChecker,
+  uniq: &mut usize,
+  nam: &Name,
+  bnd: &BinderInfo,
+  dom: &Rc<Expr>,
+  img: &Rc<Expr>
+) -> Result<Rc<Expr>, CheckError> {
+  let dom_lvl = infer_universe_of_type(tc, uniq, dom)?;
+  let new_var = Rc::new(Expr::FVar(*uniq, nam.clone(), bnd.clone(), dom.clone()));
+  *uniq = *uniq + 1;
+  let new_img = subst(img.clone(), 0, new_var);
+  let img_lvl = infer_universe_of_type(tc, uniq, &new_img)?;
+  let pi_lvl = Rc::new(Univ::IMax(dom_lvl, img_lvl));
+  Ok(Rc::new(Expr::Sort(pi_lvl)))
 }
 
 #[inline]
