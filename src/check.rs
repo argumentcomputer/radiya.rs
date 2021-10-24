@@ -378,13 +378,13 @@ pub struct RecRule {
 pub enum Declaration {
   Axiom {
     name : Name,
-    uparams : Vector<Univ>,
+    uparams : Vector<Name>,
     type_ : Rc<Expr>,
     is_unsafe : bool,
   },
   Definition {
     name : Name,
-    uparams : Vector<Univ>,
+    uparams : Vector<Name>,
     type_ : Rc<Expr>,
     val : Rc<Expr>,
     hint : ReducibilityHint,
@@ -392,24 +392,24 @@ pub enum Declaration {
   },
   Theorem {
     name : Name,
-    uparams : Vector<Univ>,
+    uparams : Vector<Name>,
     type_ : Rc<Expr>,
     val : Rc<Expr>,
   },
   Opaque {
     name : Name,
-    uparams : Vector<Univ>,
+    uparams : Vector<Name>,
     type_ : Rc<Expr>,
     val : Rc<Expr>,
   },
   Quot {
     name : Name,
-    uparams : Vector<Univ>,
+    uparams : Vector<Name>,
     type_ : Rc<Expr>,
   },
   Inductive {
     name : Name,
-    uparams : Vector<Univ>,
+    uparams : Vector<Name>,
     type_ : Rc<Expr>,
     num_params : u16,
     all_ind_names : Vector<Name>,
@@ -420,7 +420,7 @@ pub enum Declaration {
   },
   Constructor {
     name : Name,
-    uparams : Vector<Univ>,
+    uparams : Vector<Name>,
     type_ : Rc<Expr>,
     parent_name : Name,
     num_fields : u16,
@@ -444,6 +444,34 @@ pub struct Recursor {
   rec_rules : Vector<RecRule>,
   is_k : bool,
   is_unsafe : bool,
+}
+
+impl<'a> Declaration {
+  pub fn get_type(&self) -> Rc<Expr> {
+    match self {
+      Declaration::Axiom { type_, .. } => type_.clone(),
+      Declaration::Definition { type_, .. } => type_.clone(),
+      Declaration::Theorem { type_, .. } => type_.clone(),
+      Declaration::Opaque { type_, .. } => type_.clone(),
+      Declaration::Quot { type_, .. } => type_.clone(),
+      Declaration::Inductive { type_, .. } => type_.clone(),
+      Declaration::Constructor { type_, .. } => type_.clone(),
+      Declaration::Recursor(rec) => rec.type_.clone(),
+    }
+  }
+
+  pub fn get_uparams(&'a self) -> &'a Vector<Name> {
+    match self {
+      Declaration::Axiom { uparams, .. } => uparams,
+      Declaration::Definition { uparams, .. } => uparams,
+      Declaration::Theorem { uparams, .. } => uparams,
+      Declaration::Opaque { uparams, .. } => uparams,
+      Declaration::Quot { uparams, .. } => uparams,
+      Declaration::Inductive { uparams, .. } => uparams,
+      Declaration::Constructor { uparams, .. } => uparams,
+      Declaration::Recursor(rec) => &rec.uparams,
+    }
+  }
 }
 
 pub struct TypeChecker {
@@ -475,7 +503,7 @@ pub fn infer(
       let new_lvl = Rc::new(Expr::Sort(Rc::new(Univ::Succ(lvl.clone()))));
       Ok(new_lvl)
     },
-    Expr::Const(name, lvls) => infer_const(name, lvls),
+    Expr::Const(name, lvls) => infer_const(tc, uniq, name, lvls),
     Expr::FVar(.., typ) => Ok(typ.clone()),
     Expr::App(fun, arg) => infer_app(tc, uniq, fun, arg),
     Expr::Lam(nam, bnd, dom, bod) => infer_lambda(tc, uniq, nam, bnd, dom, bod),
@@ -562,8 +590,19 @@ pub fn infer_pi(
 }
 
 #[inline]
-pub fn infer_const(name : &Name, levels : &Vector<Univ>) -> Result<Rc<Expr>, CheckError> {
-  todo!()
+pub fn infer_const(
+  tc: &TypeChecker,
+  uniq: &mut usize,
+  name : &Name,
+  levels : &Vector<Univ>
+) -> Result<Rc<Expr>, CheckError> {
+  let cnst = tc.declars.get(&name).expect("Undefined constant");
+  if levels.len() == cnst.get_uparams().len() {
+    Ok(cnst.get_type())
+  }
+  else {
+    Err(CheckError::GenericError(format!("Constant has wrong number of levels")))
+  }
 }
 
 #[inline]
