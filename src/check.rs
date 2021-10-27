@@ -201,54 +201,44 @@ pub fn whnf_unfold(
         break;
       },
       Expr::Const(nam, lvls) => {
-        let Recursor {
-          name,
+        let Declaration {
           uparams,
-          num_params,
-          num_motives,
-          num_minors,
-          num_indices,
-          rec_rules,
-          is_k,
+          which,
           ..
-        } = match tc.declars.get(&nam).expect("Undefined constant") {
-          Declaration::Recursor(rec) => rec,
-          Declaration::Quot {..} => todo!(),
-          Declaration::Definition {..} => todo!(),
+        } = tc.declars.get(&nam).expect("Undefined constant");
+        match which {
+          DeclarationParticular::Recursor{ num_params, num_motives, num_minors, num_indices, rec_rules, is_k, .. } => {
+            let take_size = num_params + num_motives + num_minors;
+            let major_idx = take_size + num_indices;
+            if lvls.len() != uparams.len() || args.len() <= major_idx {
+              break;
+            }
+            let major = &args[args.len() - 1 - major_idx];
+
+            let (major_head, major_args) =
+              if !is_k {
+                whnf_unfold(tc, major.clone())
+              } else {
+                todo!()
+              };
+
+            let rule = match &*major_head {
+              Expr::Const(c_nam, _) => rec_rules.get(c_nam).expect("Undefined recursion rule"),
+              _ => break,
+            };
+            if rule.elim_name != *nam || major_args.len() != num_params + rule.num_fields {
+              break
+            }
+
+            let mut subst = args[args.len() - take_size .. args.len()].to_vec();
+            subst.extend_from_slice(&major_args[0 .. rule.num_fields]);
+            let r = subst_bulk(rule.val.clone(), 0, &subst, uparams, lvls);
+            node = r;
+            args.truncate(args.len() - 1 - major_idx);
+          }
+          DeclarationParticular::Definition {..} => todo!(),
           _ => break,
-        };
-
-        let take_size = num_params + num_motives + num_minors;
-        let major_idx = take_size + num_indices;
-        if lvls.len() != uparams.len() || args.len() <= major_idx {
-          break;
         }
-        let major = &args[args.len() - 1 - major_idx];
-
-        let (major_head, major_args) =
-          if !is_k {
-            whnf_unfold(tc, major.clone())
-          } else {
-            todo!()
-          };
-
-        let c_nam = match &*major_head {
-          Expr::Const(c_nam, _) => c_nam.clone(),
-          _ => break,
-        };
-        let rule = rec_rules.iter().find(
-          |RecRule { cnstr_name, .. }|
-          *cnstr_name == c_nam
-        ).expect("Undefined recursion rule");
-        if rule.elim_name != *name || major_args.len() != num_params + rule.num_fields {
-          break
-        }
-
-        let mut subst = args[args.len() - take_size .. args.len()].to_vec();
-        subst.extend_from_slice(&major_args[0 .. rule.num_fields]);
-        let r = subst_bulk(rule.val.clone(), 0, &subst, uparams, lvls);
-        node = r;
-        args.truncate(args.len() - 1 - major_idx);
       }
       _ => break,
     }
@@ -359,119 +349,57 @@ pub fn is_proof_irrel(
   false
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ReducibilityHint {
-    Opaq,
-    Reg(u16),
-    Abbrev,
-}
-
 #[derive(Debug, Clone)]
 pub struct RecRule {
-    pub cnstr_name : Name,
     pub elim_name : Name,
     pub num_fields : usize,
     pub val : Rc<Expr>
 }
 
+pub struct Declaration {
+  uparams: Vector<Name>,
+  type_: Rc<Expr>,
+  // is_unsafe: bool,
+  which: DeclarationParticular,
+}
+
 #[derive(Debug, Clone)]
-pub enum Declaration {
-  Axiom {
-    name : Name,
-    uparams : Vector<Name>,
-    type_ : Rc<Expr>,
-    is_unsafe : bool,
-  },
+pub enum DeclarationParticular {
+  // Constant representing an irreducible primitive of a certain type. Introduced by keyword `axiom` or `constant`
+  Axiom,
+  // Constant that binds a name to an expression of a certain type. Introduced by keyword `def`
   Definition {
-    name : Name,
-    uparams : Vector<Name>,
-    type_ : Rc<Expr>,
-    val : Rc<Expr>,
-    hint : ReducibilityHint,
-    is_unsafe : bool,
+    val: Rc<Expr>,
   },
+  // Similar to definition, but used for propositions instead of types. Introduced by keyword `theorem` or `lemma`
   Theorem {
-    name : Name,
-    uparams : Vector<Name>,
-    type_ : Rc<Expr>,
-    val : Rc<Expr>,
+    val: Rc<Expr>,
   },
-  Opaque {
-    name : Name,
-    uparams : Vector<Name>,
-    type_ : Rc<Expr>,
-    val : Rc<Expr>,
-  },
-  Quot {
-    name : Name,
-    uparams : Vector<Name>,
-    type_ : Rc<Expr>,
-  },
+  // Constant representing an inductive datatype. Introduced by keyword `inductive`
   Inductive {
-    name : Name,
-    uparams : Vector<Name>,
-    type_ : Rc<Expr>,
-    num_params : u16,
-    all_ind_names : Vector<Name>,
-    all_cnstr_names : Vector<Name>,
-    //pub is_rec : bool,
-    //pub is_reflexive : bool,
-    is_unsafe : bool,
+    num_params: u16,
+    all_ind_names: Vector<Name>,
+    all_cnstr_names: Vector<Name>,
+    //pub is_rec: bool,
+    //pub is_reflexive: bool,
   },
+  // Constant representing a constructor of a inductive datatype. Introduced by keyword `inductive`
   Constructor {
-    name : Name,
-    uparams : Vector<Name>,
-    type_ : Rc<Expr>,
-    parent_name : Name,
-    num_fields : u16,
-    num_params : u16,
-    is_unsafe : bool,
+    parent_name: Name,
+    num_fields: u16,
+    num_params: u16,
   },
-  Recursor(Recursor),
-}
-
-#[derive(Debug, Clone)]
-pub struct Recursor {
-  name : Name,
-  uparams : Vector<Name>,
-  type_ : Rc<Expr>,
-  all_names : Vector<Name>,
-  num_params : usize,
-  num_indices : usize,
-  num_motives : usize,
-  num_minors : usize,
-  major_idx : usize,
-  rec_rules : Vector<RecRule>,
-  is_k : bool,
-  is_unsafe : bool,
-}
-
-impl<'a> Declaration {
-  pub fn get_type(&self) -> Rc<Expr> {
-    match self {
-      Declaration::Axiom { type_, .. } => type_.clone(),
-      Declaration::Definition { type_, .. } => type_.clone(),
-      Declaration::Theorem { type_, .. } => type_.clone(),
-      Declaration::Opaque { type_, .. } => type_.clone(),
-      Declaration::Quot { type_, .. } => type_.clone(),
-      Declaration::Inductive { type_, .. } => type_.clone(),
-      Declaration::Constructor { type_, .. } => type_.clone(),
-      Declaration::Recursor(rec) => rec.type_.clone(),
-    }
-  }
-
-  pub fn get_uparams(&'a self) -> &'a Vector<Name> {
-    match self {
-      Declaration::Axiom { uparams, .. } => uparams,
-      Declaration::Definition { uparams, .. } => uparams,
-      Declaration::Theorem { uparams, .. } => uparams,
-      Declaration::Opaque { uparams, .. } => uparams,
-      Declaration::Quot { uparams, .. } => uparams,
-      Declaration::Inductive { uparams, .. } => uparams,
-      Declaration::Constructor { uparams, .. } => uparams,
-      Declaration::Recursor(rec) => &rec.uparams,
-    }
-  }
+  // Constant representing the recursor of a inductive datatype. Introduced by keyword `inductive`
+  Recursor {
+    all_names: Vector<Name>,
+    num_params: usize,
+    num_indices: usize,
+    num_motives: usize,
+    num_minors: usize,
+    major_idx: usize,
+    rec_rules: BTreeMap<Name, RecRule>,
+    is_k: bool,
+  },
 }
 
 pub struct TypeChecker {
@@ -503,7 +431,7 @@ pub fn infer(
       let new_lvl = Rc::new(Expr::Sort(Rc::new(Univ::Succ(lvl.clone()))));
       Ok(new_lvl)
     },
-    Expr::Const(name, lvls) => infer_const(tc, uniq, name, lvls),
+    Expr::Const(name, lvls) => infer_const(tc, name, lvls),
     Expr::FVar(.., typ) => Ok(typ.clone()),
     Expr::App(fun, arg) => infer_app(tc, uniq, fun, arg),
     Expr::Lam(nam, bnd, dom, bod) => infer_lambda(tc, uniq, nam, bnd, dom, bod),
@@ -592,13 +520,12 @@ pub fn infer_pi(
 #[inline]
 pub fn infer_const(
   tc: &TypeChecker,
-  uniq: &mut usize,
-  name : &Name,
+  nam : &Name,
   levels : &Vector<Univ>
 ) -> Result<Rc<Expr>, CheckError> {
-  let cnst = tc.declars.get(&name).expect("Undefined constant");
-  if levels.len() == cnst.get_uparams().len() {
-    Ok(cnst.get_type())
+  let cnst = tc.declars.get(&nam).expect("Undefined constant");
+  if levels.len() == cnst.uparams.len() {
+    Ok(cnst.type_.clone())
   }
   else {
     Err(CheckError::GenericError(format!("Constant has wrong number of levels")))
