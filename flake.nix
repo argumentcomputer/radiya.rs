@@ -1,19 +1,21 @@
 {
   inputs = {
     utils.url = "github:yatima-inc/nix-utils";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-21.05";
   };
 
   outputs =
     { self
     , utils
+    , nixpkgs
     }:
     utils.inputs.flake-utils.lib.eachDefaultSystem (system:
     let
       lib = utils.lib.${system};
-      pkgs = utils.nixpkgs.${system};
+      pkgs = nixpkgs.legacyPackages.${system};
       inherit (lib) buildRustProject testRustProject rustDefault filterRustProject;
       rust = rustDefault;
-      crateName = "my-crate";
+      crateName = "radiya";
       root = ./.;
     in
     {
