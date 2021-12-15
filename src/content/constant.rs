@@ -48,6 +48,8 @@ pub struct RecursorRule {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Const {
   Quotient {
+    levels: BigUint,
+    typ: ExprCid,
     kind: QuotKind,
   },
   Axiom {
@@ -171,9 +173,12 @@ impl RecursorRule {
 impl Const {
   pub fn to_ipld(&self) -> Ipld {
     match self {
-      Self::Quotient { kind } => {
-        Ipld::List(vec![Ipld::Integer(5), Ipld::Integer(0), kind.to_ipld()])
-      }
+      Self::Quotient { levels, typ, kind } => Ipld::List(vec![
+        Ipld::Integer(5),
+        Ipld::Integer(0),
+        Ipld::Bytes(levels.to_bytes_be()),
+        kind.to_ipld(),
+      ]),
       Self::Axiom { levels, typ, is_unsafe } => Ipld::List(vec![
         Ipld::Integer(5),
         Ipld::Integer(1),
@@ -271,9 +276,11 @@ impl Const {
     use Ipld::*;
     match ipld {
       List(xs) => match xs.as_slice() {
-        [Integer(5), Integer(0), kind] => {
+        [Integer(5), Integer(0), Bytes(ls), Link(t), kind] => {
+          let levels = BigUint::from_bytes_be(ls);
+          let typ = ExprCid::from_cid(*t)?;
           let kind = QuotKind::from_ipld(kind)?;
-          Ok(Const::Quotient { kind })
+          Ok(Const::Quotient { levels, typ, kind })
         }
         [Integer(5), Integer(1), Bytes(ls), Link(t), Bool(u)] => {
           let levels = BigUint::from_bytes_be(ls);
