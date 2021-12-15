@@ -177,6 +177,7 @@ impl Const {
         Ipld::Integer(5),
         Ipld::Integer(0),
         Ipld::Bytes(levels.to_bytes_be()),
+        Ipld::Link(typ.0),
         kind.to_ipld(),
       ]),
       Self::Axiom { levels, typ, is_unsafe } => Ipld::List(vec![

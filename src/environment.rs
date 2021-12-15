@@ -8,37 +8,14 @@ use num_bigint::BigUint;
 use alloc::string::String;
 
 use crate::{
-  declaration::{
-    ConstantInfo,
-    Declaration,
-  },
+  constant::Constant,
   expression::Expr,
   local_context::LocalContext,
   name::Name,
 };
 
-type ModuleIdx = BigUint;
-
-type CompactedRegion = usize;
-
-pub struct Import {
-  pub module: Name,
-  pub runtime_only: bool,
-}
-
-pub struct EnvironmentHeader {
-  pub trust_level: u32,
-  pub quot_init: bool,
-  pub main_module: Name,
-  pub imports: Vec<Import>,
-  pub regions: Vec<CompactedRegion>,
-  pub module_names: Vec<Name>,
-}
-
 pub struct Environment {
-  pub const_to_mod_idx: BTreeMap<Name, ModuleIdx>,
-  pub constants: BTreeMap<Name, ConstantInfo>,
-  pub header: EnvironmentHeader,
+  pub constants: BTreeMap<Name, Constant>,
 }
 
 pub enum KernelException {
@@ -52,7 +29,7 @@ pub enum KernelException {
   },
   DeclTypeMismatch {
     env: Environment,
-    decl: Declaration,
+    decl: Constant,
     given_type: Expr,
   },
   DeclHasMVars {
@@ -93,13 +70,4 @@ pub enum KernelException {
   Other {
     msg: String,
   },
-}
-
-/// TODO
-pub struct EnvExtensionEntry {}
-
-pub struct ModuleData {
-  pub imports: Vec<Import>,
-  pub constants: Vec<ConstantInfo>,
-  pub entries: Vec<(Name, Vec<EnvExtensionEntry>)>,
 }

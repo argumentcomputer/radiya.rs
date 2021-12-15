@@ -13,16 +13,16 @@ extern crate rand;
 #[macro_use]
 extern crate alloc;
 
-pub mod declaration;
+pub mod constant;
 pub mod environment;
 pub mod local_context;
 // pub mod inductive;
 // pub mod quotient;
 // pub mod notation;
-// pub mod content;
+pub mod content;
 // pub mod export;
-pub mod expression;
 pub mod check;
+pub mod expression;
 pub mod kvmap;
 pub mod name;
 // pub mod parse;

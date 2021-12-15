@@ -1,5 +1,4 @@
 use crate::{
-  kvmap::KVMap,
   name::Name,
   universe::Univ,
 };
@@ -24,14 +23,10 @@ pub enum BinderInfo {
   AuxDecl,
 }
 
-#[derive(Clone, Debug)]
-pub struct MData {}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expr {
   BVar(usize),
   FVar(usize, Name, BinderInfo, Rc<Expr>),
-  MVar(Name),
   Sort(Rc<Univ>),
   Const(Name, Vector<Univ>),
   App(Rc<Expr>, Rc<Expr>),
@@ -39,7 +34,6 @@ pub enum Expr {
   Pi(Name, BinderInfo, Rc<Expr>, Rc<Expr>),
   Let(Name, Rc<Expr>, Rc<Expr>, Rc<Expr>),
   Lit(Literal),
-  MData(KVMap, Rc<Expr>),
   Proj(Name, BigUint, Rc<Expr>),
 }
 
