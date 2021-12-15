@@ -1,25 +1,25 @@
 use crate::{
   content::{
-    bind::{
-      bind_from_ipld,
-      bind_to_ipld,
-    },
     cid::{
+      ConstCid,
       ExprCid,
-      NameCid,
       UnivCid,
     },
     ipld_error::IpldError,
   },
-  expression::Bind,
+  expression::{
+    BinderInfo,
+    Literal,
+  },
 };
+
+use num_bigint::BigUint;
 
 use alloc::{
   borrow::ToOwned,
   string::String,
 };
 
-use num_bigint::BigUint;
 use sp_im::vector::Vector;
 use sp_ipld::{
   dag_cbor::DagCborCodec,
@@ -37,60 +37,121 @@ use sp_multihash::{
 pub enum Expr {
   Var { idx: BigUint },
   Sort { univ: UnivCid },
-  Const { name: NameCid, levels: Vector<UnivCid> },
+  Const { constant: ConstCid, levels: Vector<UnivCid> },
   App { fun: ExprCid, arg: ExprCid },
-  Lam { info: Bind, name: NameCid, typ: ExprCid, bod: ExprCid },
-  Pi { info: Bind, name: NameCid, typ: ExprCid, bod: ExprCid },
-  Let { name: NameCid, typ: ExprCid, val: ExprCid, bod: ExprCid },
+  Lam { info: BinderInfo, typ: ExprCid, bod: ExprCid },
+  Pi { info: BinderInfo, typ: ExprCid, bod: ExprCid },
+  Let { typ: ExprCid, val: ExprCid, bod: ExprCid },
+  Lit { val: Literal },
+}
+
+impl Literal {
+  pub fn to_ipld(&self) -> Ipld {
+    match self {
+      Literal::Nat(x) => Ipld::List(vec![
+        Ipld::Integer(6),
+        Ipld::Integer(0),
+        Ipld::Bytes(x.to_bytes_be()),
+      ]),
+      Literal::Str(x) => Ipld::List(vec![
+        Ipld::Integer(6),
+        Ipld::Integer(1),
+        Ipld::String(x.clone()),
+      ]),
+    }
+  }
+
+  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    use Ipld::*;
+    match ipld {
+      List(xs) => match xs.as_slice() {
+        [Integer(6), Integer(0), Bytes(i)] => {
+          Ok(Literal::Nat(BigUint::from_bytes_be(i)))
+        }
+        [Integer(6), Integer(1), String(s)] => Ok(Literal::Str(s.to_owned())),
+        xs => Err(IpldError::Expr(List(xs.to_owned()))),
+      },
+      x => Err(IpldError::Literal(x.clone())),
+    }
+  }
+}
+
+impl BinderInfo {
+  pub fn to_ipld(self) -> Ipld {
+    match self {
+      BinderInfo::Default => Ipld::Integer(0),
+      BinderInfo::Implicit => Ipld::Integer(1),
+      BinderInfo::StrictImplicit => Ipld::Integer(2),
+      BinderInfo::InstImplicit => Ipld::Integer(3),
+      BinderInfo::AuxDecl => Ipld::Integer(4),
+    }
+  }
+
+  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    match ipld {
+      Ipld::Integer(0) => Ok(BinderInfo::Default),
+      Ipld::Integer(1) => Ok(BinderInfo::Implicit),
+      Ipld::Integer(2) => Ok(BinderInfo::StrictImplicit),
+      Ipld::Integer(3) => Ok(BinderInfo::InstImplicit),
+      Ipld::Integer(4) => Ok(BinderInfo::AuxDecl),
+      _ => Err(IpldError::BinderInfo(ipld.clone())),
+    }
+  }
 }
 
 impl Expr {
   pub fn to_ipld(&self) -> Ipld {
     match self {
       Self::Var { idx } => Ipld::List(vec![
-        Ipld::String(String::from("#EV")),
+        Ipld::Integer(4),
+        Ipld::Integer(0),
         Ipld::Bytes(idx.to_bytes_be()),
       ]),
       Self::Sort { univ } => {
-        Ipld::List(vec![Ipld::String(String::from("#ES")), Ipld::Link(univ.0)])
+        Ipld::List(vec![Ipld::Integer(4), Ipld::Integer(1), Ipld::Link(univ.0)])
       }
-      Self::Const { name, levels } => {
+      Self::Const { constant, levels } => {
         let mut vec = Vec::new();
         for level in levels {
           vec.push(Ipld::Link(level.0));
         }
         Ipld::List(vec![
-          Ipld::String(String::from("#EC")),
-          Ipld::Link(name.0),
+          Ipld::Integer(4),
+          Ipld::Integer(2),
+          Ipld::Link(constant.0),
           Ipld::List(vec),
         ])
       }
       Self::App { fun, arg } => Ipld::List(vec![
-        Ipld::String(String::from("#EA")),
+        Ipld::Integer(4),
+        Ipld::Integer(3),
         Ipld::Link(fun.0),
         Ipld::Link(arg.0),
       ]),
-      Self::Lam { info, name, typ, bod } => Ipld::List(vec![
-        Ipld::String(String::from("#EL")),
-        bind_to_ipld(info),
-        Ipld::Link(name.0),
+      Self::Lam { info, typ, bod } => Ipld::List(vec![
+        Ipld::Integer(4),
+        Ipld::Integer(4),
+        info.to_ipld(),
         Ipld::Link(typ.0),
         Ipld::Link(bod.0),
       ]),
-      Self::Pi { info, name, typ, bod } => Ipld::List(vec![
-        Ipld::String(String::from("#EP")),
-        bind_to_ipld(info),
-        Ipld::Link(name.0),
+      Self::Pi { info, typ, bod } => Ipld::List(vec![
+        Ipld::Integer(4),
+        Ipld::Integer(5),
+        info.to_ipld(),
         Ipld::Link(typ.0),
         Ipld::Link(bod.0),
       ]),
-      Self::Let { name, typ, val, bod } => Ipld::List(vec![
-        Ipld::String(String::from("#EZ")),
-        Ipld::Link(name.0),
+      Self::Let { typ, val, bod } => Ipld::List(vec![
+        Ipld::Integer(4),
+        Ipld::Integer(6),
         Ipld::Link(typ.0),
         Ipld::Link(val.0),
         Ipld::Link(bod.0),
       ]),
+      Self::Lit { val } => {
+        Ipld::List(vec![Ipld::Integer(4), Ipld::Integer(7), val.to_ipld()])
+      }
     }
   }
 
@@ -104,15 +165,15 @@ impl Expr {
     use Ipld::*;
     match ipld {
       List(xs) => match xs.as_slice() {
-        [String(tag), Bytes(i)] if tag == "#EV" => {
+        [Integer(4), Integer(0), Bytes(i)] => {
           Ok(Expr::Var { idx: BigUint::from_bytes_be(i) })
         }
-        [String(tag), Link(u)] if tag == "#ES" => {
+        [Integer(4), Integer(1), Link(u)] => {
           let univ = UnivCid::from_cid(*u)?;
           Ok(Expr::Sort { univ })
         }
-        [String(tag), Link(n), List(ls)] if tag == "#EC" => {
-          let name = NameCid::from_cid(*n)?;
+        [Integer(4), Integer(2), Link(n), List(ls)] => {
+          let constant = ConstCid::from_cid(*n)?;
           let mut levels = Vec::new();
           for l in ls {
             match l {
@@ -125,33 +186,34 @@ impl Expr {
               }
             }
           }
-          Ok(Expr::Const { name, levels: levels.into() })
+          Ok(Expr::Const { constant, levels: levels.into() })
         }
-        [String(tag), Link(f), Link(a)] if tag == "#EA" => {
+        [Integer(4), Integer(3), Link(f), Link(a)] => {
           let fun = ExprCid::from_cid(*f)?;
           let arg = ExprCid::from_cid(*a)?;
           Ok(Expr::App { fun, arg })
         }
-        [String(tag), i, Link(n), Link(t), Link(b)] if tag == "#EL" => {
-          let info = bind_from_ipld(i)?;
-          let name = NameCid::from_cid(*n)?;
+        [Integer(4), Integer(4), i, Link(t), Link(b)] => {
+          let info = BinderInfo::from_ipld(i)?;
           let typ = ExprCid::from_cid(*t)?;
           let bod = ExprCid::from_cid(*b)?;
-          Ok(Expr::Lam { info, name, typ, bod })
+          Ok(Expr::Lam { info, typ, bod })
         }
-        [String(tag), i, Link(n), Link(t), Link(b)] if tag == "#EP" => {
-          let info = bind_from_ipld(i)?;
-          let name = NameCid::from_cid(*n)?;
+        [Integer(4), Integer(5), i, Link(t), Link(b)] => {
+          let info = BinderInfo::from_ipld(i)?;
           let typ = ExprCid::from_cid(*t)?;
           let bod = ExprCid::from_cid(*b)?;
-          Ok(Expr::Pi { info, name, typ, bod })
+          Ok(Expr::Pi { info, typ, bod })
         }
-        [String(tag), Link(n), Link(t), Link(v), Link(b)] if tag == "#EZ" => {
-          let name = NameCid::from_cid(*n)?;
+        [Integer(4), Integer(6), Link(t), Link(v), Link(b)] => {
           let typ = ExprCid::from_cid(*t)?;
           let val = ExprCid::from_cid(*v)?;
           let bod = ExprCid::from_cid(*b)?;
-          Ok(Expr::Let { name, typ, val, bod })
+          Ok(Expr::Let { typ, val, bod })
+        }
+        [Integer(4), Integer(7), lit] => {
+          let lit = Literal::from_ipld(lit)?;
+          Ok(Expr::Lit { val: lit })
         }
         xs => Err(IpldError::Expr(List(xs.to_owned()))),
       },
@@ -190,7 +252,7 @@ pub mod tests {
               vec.push(Arbitrary::arbitrary(g));
             }
             Expr::Const {
-              name: Arbitrary::arbitrary(g),
+              constant: Arbitrary::arbitrary(g),
               levels: Vector::from(vec),
             }
           }),
@@ -206,7 +268,6 @@ pub mod tests {
           1,
           Box::new(|g| Expr::Lam {
             info: Arbitrary::arbitrary(g),
-            name: Arbitrary::arbitrary(g),
             typ: Arbitrary::arbitrary(g),
             bod: Arbitrary::arbitrary(g),
           }),
@@ -215,7 +276,6 @@ pub mod tests {
           1,
           Box::new(|g| Expr::Pi {
             info: Arbitrary::arbitrary(g),
-            name: Arbitrary::arbitrary(g),
             typ: Arbitrary::arbitrary(g),
             bod: Arbitrary::arbitrary(g),
           }),
@@ -223,7 +283,6 @@ pub mod tests {
         (
           1,
           Box::new(|g| Expr::Let {
-            name: Arbitrary::arbitrary(g),
             typ: Arbitrary::arbitrary(g),
             val: Arbitrary::arbitrary(g),
             bod: Arbitrary::arbitrary(g),

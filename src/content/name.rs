@@ -27,14 +27,16 @@ pub enum Name {
 impl Name {
   pub fn to_ipld(&self) -> Ipld {
     match self {
-      Self::Anon => Ipld::List(vec![Ipld::String(String::from("#NA"))]),
+      Self::Anon => Ipld::List(vec![Ipld::Integer(2), Ipld::Integer(0)]),
       Self::Str { prev, name } => Ipld::List(vec![
-        Ipld::String(String::from("#NS")),
+        Ipld::Integer(2),
+        Ipld::Integer(1),
         Ipld::Link(prev.0),
         Ipld::String(name.clone()),
       ]),
       Self::Int { prev, int } => Ipld::List(vec![
-        Ipld::String(String::from("#NI")),
+        Ipld::Integer(2),
+        Ipld::Integer(2),
         Ipld::Link(prev.0),
         Ipld::Bytes(int.to_bytes_be()),
       ]),
@@ -51,12 +53,12 @@ impl Name {
     use Ipld::*;
     match ipld {
       Ipld::List(xs) => match xs.as_slice() {
-        [String(tag)] if tag == "#NA" => Ok(Name::Anon),
-        [String(tag), Link(p), String(n)] if tag == "#NS" => {
+        [Integer(2), Integer(0)] => Ok(Name::Anon),
+        [Integer(2), Integer(1), Link(p), String(n)] => {
           let prev = NameCid::from_cid(*p)?;
           Ok(Name::Str { prev, name: n.clone() })
         }
-        [String(tag), Link(p), Bytes(i)] if tag == "#NI" => {
+        [Integer(2), Integer(2), Link(p), Bytes(i)] => {
           let prev = NameCid::from_cid(*p)?;
           Ok(Name::Int { prev, int: BigUint::from_bytes_be(&i) })
         }

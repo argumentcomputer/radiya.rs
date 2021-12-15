@@ -10,7 +10,7 @@ use sp_im::vector::Vector;
 use alloc::string::String;
 use sp_std::rc::Rc;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Literal {
   Nat(BigUint),
   Str(String),
@@ -19,9 +19,9 @@ pub enum Literal {
 pub enum BinderInfo {
   Default,
   Implicit,
-  StrictImplict,
-  InstImplict,
-  Rec,
+  StrictImplicit,
+  InstImplicit,
+  AuxDecl,
 }
 
 #[derive(Clone, Debug)]
@@ -43,25 +43,26 @@ pub enum Expr {
   Proj(Name, BigUint, Rc<Expr>),
 }
 
-//#[cfg(test)]
-// pub mod tests {
-//  use crate::content::tests::frequency;
-//
-//  use super::*;
-//  use quickcheck::{
-//    Arbitrary,
-//    Gen,
-//  };
-//
-//  impl Arbitrary for Bind {
-//    fn arbitrary(g: &mut Gen) -> Self {
-//      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Bind>)> = vec![
-//        (1, Box::new(|_| Bind::Default)),
-//        (1, Box::new(|_| Bind::Implicit)),
-//        (1, Box::new(|_| Bind::Strict)),
-//        (1, Box::new(|_| Bind::Class)),
-//      ];
-//      frequency(g, input)
-//    }
-//  }
-//}
+#[cfg(test)]
+pub mod tests {
+  use crate::content::tests::frequency;
+
+  use super::*;
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  impl Arbitrary for BinderInfo {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> BinderInfo>)> = vec![
+        (1, Box::new(|_| BinderInfo::Default)),
+        (1, Box::new(|_| BinderInfo::Implicit)),
+        (1, Box::new(|_| BinderInfo::StrictImplicit)),
+        (1, Box::new(|_| BinderInfo::InstImplicit)),
+        (1, Box::new(|_| BinderInfo::AuxDecl)),
+      ];
+      frequency(g, input)
+    }
+  }
+}

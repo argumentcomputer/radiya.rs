@@ -1,15 +1,12 @@
 use crate::content::{
-  cid::{
-    NameCid,
-    UnivCid,
-  },
+  cid::UnivCid,
   ipld_error::IpldError,
 };
 use alloc::{
   borrow::ToOwned,
   string::String,
 };
-
+use num_bigint::BigUint;
 use sp_ipld::{
   dag_cbor::DagCborCodec,
   Codec,
@@ -26,29 +23,33 @@ pub enum Univ {
   Succ { pred: UnivCid },
   Max { lhs: UnivCid, rhs: UnivCid },
   IMax { lhs: UnivCid, rhs: UnivCid },
-  Param { name: NameCid },
+  Param { idx: BigUint },
 }
 
 impl Univ {
   pub fn to_ipld(&self) -> Ipld {
     match self {
-      Self::Zero => Ipld::List(vec![Ipld::String(String::from("#UZ"))]),
+      Self::Zero => Ipld::List(vec![Ipld::Integer(3), Ipld::Integer(0)]),
       Self::Succ { pred } => {
-        Ipld::List(vec![Ipld::String(String::from("#US")), Ipld::Link(pred.0)])
+        Ipld::List(vec![Ipld::Integer(3), Ipld::Integer(1), Ipld::Link(pred.0)])
       }
       Self::Max { lhs, rhs } => Ipld::List(vec![
-        Ipld::String(String::from("#UM")),
+        Ipld::Integer(3),
+        Ipld::Integer(2),
         Ipld::Link(lhs.0),
         Ipld::Link(rhs.0),
       ]),
       Self::IMax { lhs, rhs } => Ipld::List(vec![
-        Ipld::String(String::from("#UIM")),
+        Ipld::Integer(3),
+        Ipld::Integer(3),
         Ipld::Link(lhs.0),
         Ipld::Link(rhs.0),
       ]),
-      Self::Param { name } => {
-        Ipld::List(vec![Ipld::String(String::from("#UP")), Ipld::Link(name.0)])
-      }
+      Self::Param { idx } => Ipld::List(vec![
+        Ipld::Integer(3),
+        Ipld::Integer(4),
+        Ipld::Bytes(idx.to_bytes_be()),
+      ]),
     }
   }
 
@@ -62,24 +63,23 @@ impl Univ {
     use Ipld::*;
     match ipld {
       List(xs) => match xs.as_slice() {
-        [String(tag)] if tag == "#UZ" => Ok(Univ::Zero),
-        [String(tag), Link(p)] if tag == "#US" => {
+        [Integer(3), Integer(0)] => Ok(Univ::Zero),
+        [Integer(3), Integer(1), Link(p)] => {
           let pred = UnivCid::from_cid(*p)?;
           Ok(Univ::Succ { pred })
         }
-        [String(tag), Link(l), Link(r)] if tag == "#UM" => {
+        [Integer(3), Integer(2), Link(l), Link(r)] => {
           let lhs = UnivCid::from_cid(*l)?;
           let rhs = UnivCid::from_cid(*r)?;
           Ok(Univ::Max { lhs, rhs })
         }
-        [String(tag), Link(l), Link(r)] if tag == "#UIM" => {
+        [Integer(3), Integer(3), Link(l), Link(r)] => {
           let lhs = UnivCid::from_cid(*l)?;
           let rhs = UnivCid::from_cid(*r)?;
           Ok(Univ::IMax { lhs, rhs })
         }
-        [String(tag), Link(n)] if tag == "#UP" => {
-          let name = NameCid::from_cid(*n)?;
-          Ok(Univ::Param { name })
+        [Integer(3), Integer(4), Bytes(bs)] => {
+          Ok(Univ::Param { idx: BigUint::from_bytes_be(bs) })
         }
         xs => Err(IpldError::Univ(List(xs.to_owned()))),
       },
@@ -90,7 +90,10 @@ impl Univ {
 
 #[cfg(test)]
 pub mod tests {
-  use crate::content::tests::frequency;
+  use crate::{
+    content::tests::frequency,
+    tests::arbitrary_big_uint,
+  };
 
   use super::*;
   use quickcheck::{
@@ -117,7 +120,7 @@ pub mod tests {
             rhs: Arbitrary::arbitrary(g),
           }),
         ),
-        (1, Box::new(|g| Univ::Param { name: Arbitrary::arbitrary(g) })),
+        (1, Box::new(|g| Univ::Param { idx: arbitrary_big_uint()(g) })),
       ];
       frequency(g, input)
     }
