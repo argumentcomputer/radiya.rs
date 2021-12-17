@@ -4,13 +4,15 @@ use crate::content::{
     ExprCid,
     NameCid,
   },
-  ipld_error::IpldError,
+  ipld::{
+    IpldEmbed,
+    IpldError,
+  },
 };
 
 use alloc::borrow::ToOwned;
 
 use num_bigint::BigUint;
-use sp_im::vector::Vector;
 use sp_ipld::{
   dag_cbor::DagCborCodec,
   Codec,
@@ -22,6 +24,8 @@ use sp_multihash::{
   Code,
   MultihashDigest,
 };
+
+use super::cid::CONSTANT;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DefinitionSafety {
@@ -43,6 +47,12 @@ pub struct RecursorRule {
   ctor: NameCid,
   fields: BigUint,
   rhs: ExprCid,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Intro {
+  ctor: NameCid,
+  typ: ExprCid,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -78,7 +88,7 @@ pub enum Const {
     levels: BigUint,
     typ: ExprCid,
     params: BigUint,
-    intros: Vector<(NameCid, ExprCid)>,
+    intros: Vec<Intro>,
     is_unsafe: bool,
   },
   Ctor {
@@ -104,8 +114,8 @@ pub enum Const {
   },
 }
 
-impl QuotKind {
-  pub fn to_ipld(self) -> Ipld {
+impl IpldEmbed for QuotKind {
+  fn to_ipld(&self) -> Ipld {
     match self {
       QuotKind::Type => Ipld::Integer(0),
       QuotKind::Ctor => Ipld::Integer(1),
@@ -114,19 +124,19 @@ impl QuotKind {
     }
   }
 
-  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     match ipld {
       Ipld::Integer(0) => Ok(QuotKind::Type),
       Ipld::Integer(1) => Ok(QuotKind::Ctor),
       Ipld::Integer(2) => Ok(QuotKind::Lift),
       Ipld::Integer(3) => Ok(QuotKind::Ind),
-      _ => Err(IpldError::QuotKind(ipld.clone())),
+      _ => Err(IpldError::expected("QuotKind", ipld)),
     }
   }
 }
 
-impl DefinitionSafety {
-  pub fn to_ipld(self) -> Ipld {
+impl IpldEmbed for DefinitionSafety {
+  fn to_ipld(&self) -> Ipld {
     match self {
       DefinitionSafety::Unsafe => Ipld::Integer(0),
       DefinitionSafety::Safe => Ipld::Integer(1),
@@ -134,38 +144,59 @@ impl DefinitionSafety {
     }
   }
 
-  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     match ipld {
       Ipld::Integer(0) => Ok(DefinitionSafety::Unsafe),
       Ipld::Integer(1) => Ok(DefinitionSafety::Safe),
       Ipld::Integer(2) => Ok(DefinitionSafety::Partial),
-      _ => Err(IpldError::DefinitionSafety(ipld.clone())),
+      _ => Err(IpldError::expected("DefinitionSafety", ipld)),
     }
   }
 }
 
-impl RecursorRule {
-  pub fn to_ipld(self) -> Ipld {
+impl IpldEmbed for Intro {
+  fn to_ipld(&self) -> Ipld {
+    Ipld::List(vec![self.ctor.to_ipld(), self.typ.to_ipld()])
+  }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    match ipld {
+      Ipld::List(xs) => match xs.as_slice() {
+        [ctor, typ] => {
+          let ctor = NameCid::from_ipld(ctor)?;
+          let typ = ExprCid::from_ipld(typ)?;
+          Ok(Intro { ctor, typ })
+        }
+        xs => Err(IpldError::expected("Intro", &Ipld::List(xs.to_owned()))),
+      },
+      _ => Err(IpldError::expected("Intro", ipld)),
+    }
+  }
+}
+
+impl IpldEmbed for RecursorRule {
+  fn to_ipld(&self) -> Ipld {
     Ipld::List(vec![
-      Ipld::Link(self.ctor.0),
-      Ipld::Bytes(self.fields.to_bytes_be()),
-      Ipld::Link(self.rhs.0),
+      self.ctor.to_ipld(),
+      self.fields.to_ipld(),
+      self.rhs.to_ipld(),
     ])
   }
 
-  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-    use Ipld::*;
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     match ipld {
-      List(xs) => match xs.as_slice() {
-        [Link(ctor), Bytes(bs), Link(rhs)] => {
-          let ctor = NameCid::from_cid(*ctor)?;
-          let fields = BigUint::from_bytes_be(bs);
-          let rhs = ExprCid::from_cid(*rhs)?;
+      Ipld::List(xs) => match xs.as_slice() {
+        [ctor, fields, rhs] => {
+          let ctor = NameCid::from_ipld(ctor)?;
+          let fields = BigUint::from_ipld(fields)?;
+          let rhs = ExprCid::from_ipld(rhs)?;
           Ok(RecursorRule { ctor, fields, rhs })
         }
-        xs => Err(IpldError::RecursorRule(List(xs.to_owned()))),
+        xs => {
+          Err(IpldError::expected("RecursorRule", &Ipld::List(xs.to_owned())))
+        }
       },
-      _ => Err(IpldError::RecursorRule(ipld.clone())),
+      _ => Err(IpldError::expected("RecursorRule", ipld)),
     }
   }
 }
@@ -174,69 +205,64 @@ impl Const {
   pub fn to_ipld(&self) -> Ipld {
     match self {
       Self::Quotient { levels, typ, kind } => Ipld::List(vec![
-        Ipld::Integer(5),
+        Ipld::Integer(CONSTANT.into()),
         Ipld::Integer(0),
-        Ipld::Bytes(levels.to_bytes_be()),
-        Ipld::Link(typ.0),
+        levels.to_ipld(),
+        typ.to_ipld(),
         kind.to_ipld(),
       ]),
       Self::Axiom { levels, typ, is_unsafe } => Ipld::List(vec![
-        Ipld::Integer(5),
+        Ipld::Integer(CONSTANT.into()),
         Ipld::Integer(1),
-        Ipld::Bytes(levels.to_bytes_be()),
-        Ipld::Link(typ.0),
-        Ipld::Bool(*is_unsafe),
+        levels.to_ipld(),
+        typ.to_ipld(),
+        is_unsafe.to_ipld(),
       ]),
       Self::Definition { levels, typ, val, safety } => Ipld::List(vec![
-        Ipld::Integer(5),
+        Ipld::Integer(CONSTANT.into()),
         Ipld::Integer(2),
-        Ipld::Bytes(levels.to_bytes_be()),
-        Ipld::Link(typ.0),
-        Ipld::Link(val.0),
+        levels.to_ipld(),
+        typ.to_ipld(),
+        val.to_ipld(),
         safety.to_ipld(),
       ]),
       Self::Theorem { levels, typ, val } => Ipld::List(vec![
-        Ipld::Integer(5),
+        Ipld::Integer(CONSTANT.into()),
         Ipld::Integer(3),
-        Ipld::Bytes(levels.to_bytes_be()),
-        Ipld::Link(typ.0),
-        Ipld::Link(val.0),
+        levels.to_ipld(),
+        typ.to_ipld(),
+        val.to_ipld(),
       ]),
       Self::Opaque { levels, typ, val, is_unsafe } => Ipld::List(vec![
-        Ipld::Integer(5),
+        Ipld::Integer(CONSTANT.into()),
         Ipld::Integer(4),
-        Ipld::Bytes(levels.to_bytes_be()),
-        Ipld::Link(typ.0),
-        Ipld::Link(val.0),
-        Ipld::Bool(*is_unsafe),
+        levels.to_ipld(),
+        typ.to_ipld(),
+        val.to_ipld(),
+        is_unsafe.to_ipld(),
       ]),
       Self::Inductive { levels, typ, params, intros, is_unsafe } => {
         Ipld::List(vec![
+          Ipld::Integer(CONSTANT.into()),
           Ipld::Integer(5),
-          Ipld::Integer(5),
-          Ipld::Bytes(levels.to_bytes_be()),
-          Ipld::Link(typ.0),
-          Ipld::Bytes(params.to_bytes_be()),
-          Ipld::List(
-            intros
-              .into_iter()
-              .map(|(n, x)| Ipld::List(vec![Ipld::Link(n.0), Ipld::Link(x.0)]))
-              .collect(),
-          ),
-          Ipld::Bool(*is_unsafe),
+          levels.to_ipld(),
+          typ.to_ipld(),
+          params.to_ipld(),
+          intros.to_ipld(),
+          is_unsafe.to_ipld(),
         ])
       }
       Self::Ctor { levels, typ, induct, cidx, params, fields, is_unsafe } => {
         Ipld::List(vec![
-          Ipld::Integer(5),
+          Ipld::Integer(CONSTANT.into()),
           Ipld::Integer(6),
-          Ipld::Bytes(levels.to_bytes_be()),
-          Ipld::Link(typ.0),
-          Ipld::Link(induct.0),
-          Ipld::Bytes(cidx.to_bytes_be()),
-          Ipld::Bytes(params.to_bytes_be()),
-          Ipld::Bytes(fields.to_bytes_be()),
-          Ipld::Bool(*is_unsafe),
+          levels.to_ipld(),
+          typ.to_ipld(),
+          induct.to_ipld(),
+          cidx.to_ipld(),
+          params.to_ipld(),
+          fields.to_ipld(),
+          is_unsafe.to_ipld(),
         ])
       }
       Self::Rec {
@@ -251,18 +277,18 @@ impl Const {
         k,
         is_unsafe,
       } => Ipld::List(vec![
-        Ipld::Integer(5),
+        Ipld::Integer(CONSTANT.into()),
         Ipld::Integer(7),
-        Ipld::Bytes(levels.to_bytes_be()),
-        Ipld::Link(typ.0),
-        Ipld::Link(induct.0),
-        Ipld::Bytes(params.to_bytes_be()),
-        Ipld::Bytes(indices.to_bytes_be()),
-        Ipld::Bytes(motives.to_bytes_be()),
-        Ipld::Bytes(minors.to_bytes_be()),
-        Ipld::List(rules.into_iter().map(|x| x.clone().to_ipld()).collect()),
-        Ipld::Bool(*k),
-        Ipld::Bool(*is_unsafe),
+        levels.to_ipld(),
+        typ.to_ipld(),
+        induct.to_ipld(),
+        params.to_ipld(),
+        indices.to_ipld(),
+        motives.to_ipld(),
+        minors.to_ipld(),
+        rules.to_ipld(),
+        k.to_ipld(),
+        is_unsafe.to_ipld(),
       ]),
     }
   }
@@ -275,73 +301,61 @@ impl Const {
 
   pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     use Ipld::*;
+    let tag: i128 = CONSTANT.into();
     match ipld {
       List(xs) => match xs.as_slice() {
-        [Integer(5), Integer(0), Bytes(ls), Link(t), kind] => {
-          let levels = BigUint::from_bytes_be(ls);
-          let typ = ExprCid::from_cid(*t)?;
+        [Integer(t), Integer(0), levels, typ, kind] if *t == tag => {
+          let levels = BigUint::from_ipld(levels)?;
+          let typ = ExprCid::from_ipld(typ)?;
           let kind = QuotKind::from_ipld(kind)?;
           Ok(Const::Quotient { levels, typ, kind })
         }
-        [Integer(5), Integer(1), Bytes(ls), Link(t), Bool(u)] => {
-          let levels = BigUint::from_bytes_be(ls);
-          let typ = ExprCid::from_cid(*t)?;
-          Ok(Const::Axiom { levels, typ, is_unsafe: *u })
+        [Integer(t), Integer(1), levels, typ, is_unsafe] if *t == tag => {
+          let levels = BigUint::from_ipld(levels)?;
+          let typ = ExprCid::from_ipld(typ)?;
+          let is_unsafe = bool::from_ipld(is_unsafe)?;
+          Ok(Const::Axiom { levels, typ, is_unsafe })
         }
-        [Integer(5), Integer(2), Bytes(ls), Link(t), Link(v), safety] => {
-          let levels = BigUint::from_bytes_be(ls);
-          let typ = ExprCid::from_cid(*t)?;
-          let val = ExprCid::from_cid(*v)?;
+        [Integer(t), Integer(2), levels, typ, val, safety] if *t == tag => {
+          let levels = BigUint::from_ipld(levels)?;
+          let typ = ExprCid::from_ipld(typ)?;
+          let val = ExprCid::from_ipld(val)?;
           let safety = DefinitionSafety::from_ipld(safety)?;
           Ok(Const::Definition { levels, typ, val, safety })
         }
-        [Integer(5), Integer(3), Bytes(ls), Link(t), Link(v)] => {
-          let levels = BigUint::from_bytes_be(ls);
-          let typ = ExprCid::from_cid(*t)?;
-          let val = ExprCid::from_cid(*v)?;
+        [Integer(t), Integer(3), levels, typ, val] if *t == tag => {
+          let levels = BigUint::from_ipld(levels)?;
+          let typ = ExprCid::from_ipld(typ)?;
+          let val = ExprCid::from_ipld(val)?;
           Ok(Const::Theorem { levels, typ, val })
         }
-        [Integer(5), Integer(4), Bytes(ls), Link(t), Link(v), Bool(u)] => {
-          let levels = BigUint::from_bytes_be(ls);
-          let typ = ExprCid::from_cid(*t)?;
-          let val = ExprCid::from_cid(*v)?;
-          Ok(Const::Opaque { levels, typ, val, is_unsafe: *u })
+        [Integer(t), Integer(4), levels, typ, val, is_unsafe] if *t == tag => {
+          let levels = BigUint::from_ipld(levels)?;
+          let typ = ExprCid::from_ipld(typ)?;
+          let val = ExprCid::from_ipld(val)?;
+          let is_unsafe = bool::from_ipld(is_unsafe)?;
+          Ok(Const::Opaque { levels, typ, val, is_unsafe })
         }
-        [Integer(5), Integer(5), Bytes(ls), Link(t), Bytes(ps), List(is), Bool(u)] =>
+        [Integer(t), Integer(5), levels, typ, params, intros, is_unsafe]
+          if *t == tag =>
         {
-          let levels = BigUint::from_bytes_be(ls);
-          let typ = ExprCid::from_cid(*t)?;
-          let params = BigUint::from_bytes_be(ps);
-          let mut intros = Vec::new();
-          for i in is {
-            match i {
-              List(i) => match i.as_slice() {
-                [Link(n), Link(x)] => {
-                  let n = NameCid::from_cid(*n)?;
-                  let x = ExprCid::from_cid(*x)?;
-                  intros.push((n, x));
-                }
-                _ => return Err(IpldError::Intro(List(i.clone()))),
-              },
-              _ => return Err(IpldError::Intro(i.clone())),
-            }
-          }
-          Ok(Const::Inductive {
-            levels,
-            typ,
-            params,
-            intros: Vector::from(intros),
-            is_unsafe: *u,
-          })
+          let levels = BigUint::from_ipld(levels)?;
+          let typ = ExprCid::from_ipld(typ)?;
+          let params = BigUint::from_ipld(params)?;
+          let intros = IpldEmbed::from_ipld(intros)?;
+          let is_unsafe = bool::from_ipld(is_unsafe)?;
+          Ok(Const::Inductive { levels, typ, params, intros, is_unsafe })
         }
-        [Integer(5), Integer(6), Bytes(ls), Link(t), Link(i), Bytes(c), Bytes(ps), Bytes(fs), Bool(u)] =>
+        [Integer(t), Integer(6), levels, typ, induct, cidx, params, fields, is_unsafe]
+          if *t == tag =>
         {
-          let levels = BigUint::from_bytes_be(ls);
-          let typ = ExprCid::from_cid(*t)?;
-          let induct = ConstCid::from_cid(*i)?;
-          let cidx = BigUint::from_bytes_be(c);
-          let params = BigUint::from_bytes_be(ps);
-          let fields = BigUint::from_bytes_be(fs);
+          let levels = BigUint::from_ipld(levels)?;
+          let typ = ExprCid::from_ipld(typ)?;
+          let induct = ConstCid::from_ipld(induct)?;
+          let cidx = BigUint::from_ipld(cidx)?;
+          let params = BigUint::from_ipld(params)?;
+          let fields = BigUint::from_ipld(fields)?;
+          let is_unsafe = bool::from_ipld(is_unsafe)?;
           Ok(Const::Ctor {
             levels,
             typ,
@@ -349,22 +363,22 @@ impl Const {
             cidx,
             params,
             fields,
-            is_unsafe: *u,
+            is_unsafe,
           })
         }
-        [Integer(5), Integer(7), Bytes(ls), Link(t), Link(i), Bytes(ps), Bytes(is), Bytes(mos), Bytes(ms), List(rs), Bool(k), Bool(u)] =>
+        [Integer(t), Integer(7), levels, typ, induct, params, indices, motives, minors, rules, k, is_unsafe]
+          if *t == tag =>
         {
-          let levels = BigUint::from_bytes_be(ls);
-          let typ = ExprCid::from_cid(*t)?;
-          let induct = ConstCid::from_cid(*i)?;
-          let params = BigUint::from_bytes_be(ps);
-          let indices = BigUint::from_bytes_be(is);
-          let motives = BigUint::from_bytes_be(mos);
-          let minors = BigUint::from_bytes_be(ms);
-          let mut rules = Vec::new();
-          for r in rs {
-            rules.push(RecursorRule::from_ipld(r)?)
-          }
+          let levels = BigUint::from_ipld(levels)?;
+          let typ = ExprCid::from_ipld(typ)?;
+          let induct = ConstCid::from_ipld(induct)?;
+          let params = BigUint::from_ipld(params)?;
+          let indices = BigUint::from_ipld(indices)?;
+          let motives = BigUint::from_ipld(motives)?;
+          let minors = BigUint::from_ipld(minors)?;
+          let rules = IpldEmbed::from_ipld(rules)?;
+          let k = bool::from_ipld(k)?;
+          let is_unsafe = bool::from_ipld(is_unsafe)?;
           Ok(Const::Rec {
             levels,
             typ,
@@ -374,13 +388,13 @@ impl Const {
             motives,
             minors,
             rules,
-            k: *k,
-            is_unsafe: *u,
+            k,
+            is_unsafe,
           })
         }
-        xs => Err(IpldError::Const(Ipld::List(xs.to_owned()))),
+        xs => Err(IpldError::expected("Const", &List(xs.to_owned()))),
       },
-      xs => Err(IpldError::Const(xs.to_owned())),
+      xs => Err(IpldError::expected("Const", xs)),
     }
   }
 }
@@ -423,6 +437,11 @@ pub mod tests {
     }
   }
 
+  impl Arbitrary for Intro {
+    fn arbitrary(g: &mut Gen) -> Self {
+      Intro { ctor: Arbitrary::arbitrary(g), typ: Arbitrary::arbitrary(g) }
+    }
+  }
   impl Arbitrary for RecursorRule {
     fn arbitrary(g: &mut Gen) -> Self {
       RecursorRule {
@@ -436,7 +455,14 @@ pub mod tests {
   impl Arbitrary for Const {
     fn arbitrary(g: &mut Gen) -> Self {
       let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Const>)> = vec![
-        (1, Box::new(|g| Const::Quotient { kind: Arbitrary::arbitrary(g) })),
+        (
+          1,
+          Box::new(|g| Const::Quotient {
+            levels: arbitrary_big_uint()(g),
+            typ: Arbitrary::arbitrary(g),
+            kind: Arbitrary::arbitrary(g),
+          }),
+        ),
         (
           1,
           Box::new(|g| Const::Axiom {
@@ -477,13 +503,13 @@ pub mod tests {
             let mut intros = Vec::new();
             let num = gen_range(g, 0..6);
             for _ in 0..num {
-              intros.push((Arbitrary::arbitrary(g), Arbitrary::arbitrary(g)));
+              intros.push(Arbitrary::arbitrary(g));
             }
             Const::Inductive {
               levels: arbitrary_big_uint()(g),
               typ: Arbitrary::arbitrary(g),
               params: arbitrary_big_uint()(g),
-              intros: Vector::from(intros),
+              intros,
               is_unsafe: Arbitrary::arbitrary(g),
             }
           }),

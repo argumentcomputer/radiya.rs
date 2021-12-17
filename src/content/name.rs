@@ -1,21 +1,19 @@
 use crate::content::{
-  cid::NameCid,
-  ipld_error::IpldError,
+  cid::{
+    NameCid,
+    NAME,
+  },
+  ipld::{
+    IpldEmbed,
+    IpldError,
+  },
 };
 use alloc::{
   borrow::ToOwned,
   string::String,
 };
 use num_bigint::BigUint;
-use sp_ipld::{
-  dag_cbor::DagCborCodec,
-  Codec,
-  Ipld,
-};
-use sp_multihash::{
-  Code,
-  MultihashDigest,
-};
+use sp_ipld::Ipld;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Name {
@@ -24,48 +22,48 @@ pub enum Name {
   Int { prev: NameCid, int: BigUint },
 }
 
-impl Name {
-  pub fn to_ipld(&self) -> Ipld {
+impl IpldEmbed for Name {
+  fn to_ipld(&self) -> Ipld {
     match self {
-      Self::Anon => Ipld::List(vec![Ipld::Integer(2), Ipld::Integer(0)]),
+      Self::Anon => {
+        Ipld::List(vec![Ipld::Integer(NAME.into()), Ipld::Integer(0)])
+      }
       Self::Str { prev, name } => Ipld::List(vec![
-        Ipld::Integer(2),
+        Ipld::Integer(NAME.into()),
         Ipld::Integer(1),
-        Ipld::Link(prev.0),
-        Ipld::String(name.clone()),
+        prev.to_ipld(),
+        name.to_ipld(),
       ]),
       Self::Int { prev, int } => Ipld::List(vec![
+        Ipld::Integer(NAME.into()),
         Ipld::Integer(2),
-        Ipld::Integer(2),
-        Ipld::Link(prev.0),
-        Ipld::Bytes(int.to_bytes_be()),
+        prev.to_ipld(),
+        int.to_ipld(),
       ]),
     }
   }
 
-  pub fn cid(&self) -> NameCid {
-    NameCid::new(Code::Blake3_256.digest(
-      DagCborCodec.encode(&self.to_ipld()).unwrap().into_inner().as_ref(),
-    ))
-  }
-
-  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    use alloc::string;
     use Ipld::*;
+    let tag: i128 = NAME.into();
     match ipld {
       Ipld::List(xs) => match xs.as_slice() {
-        [Integer(2), Integer(0)] => Ok(Name::Anon),
-        [Integer(2), Integer(1), Link(p), String(n)] => {
-          let prev = NameCid::from_cid(*p)?;
-          Ok(Name::Str { prev, name: n.clone() })
+        [Integer(t), Integer(0)] if *t == tag => Ok(Name::Anon),
+        [Integer(t), Integer(1), p, n] if *t == tag => {
+          let prev = NameCid::from_ipld(p)?;
+          let name = string::String::from_ipld(n)?;
+          Ok(Name::Str { prev, name })
         }
-        [Integer(2), Integer(2), Link(p), Bytes(i)] => {
-          let prev = NameCid::from_cid(*p)?;
-          Ok(Name::Int { prev, int: BigUint::from_bytes_be(&i) })
+        [Integer(t), Integer(2), p, i] if *t == tag => {
+          let prev = NameCid::from_ipld(p)?;
+          let int = BigUint::from_ipld(i)?;
+          Ok(Name::Int { prev, int })
         }
 
-        xs => Err(IpldError::Name(List(xs.to_owned()))),
+        xs => Err(IpldError::expected("Name", &List(xs.to_owned()))),
       },
-      xs => Err(IpldError::Name(xs.to_owned())),
+      xs => Err(IpldError::expected("Name", xs)),
     }
   }
 }

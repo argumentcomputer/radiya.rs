@@ -1,8 +1,8 @@
 pub mod cid;
 pub mod constant;
-pub mod environment;
+// pub mod environment;
 pub mod expr;
-pub mod ipld_error;
+pub mod ipld;
 pub mod name;
 pub mod univ;
 
@@ -12,38 +12,38 @@ pub use cid::{
   NameCid,
   UnivCid,
 };
-pub use constant::Const;
-pub use expr::Expr;
-pub use name::Name;
-pub use univ::Univ;
-
-use alloc::{
-  borrow::ToOwned,
-  string::String,
-};
-use num_bigint::BigUint;
-use sp_ipld::{
-  dag_cbor::DagCborCodec,
-  Codec,
-  Ipld,
-};
-use sp_multihash::{
-  Code,
-  MultihashDigest,
-};
-use sp_std::{
-  collections::btree_map::BTreeMap,
-  vec::Vec,
-};
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Ctx {
-  pub univs: BTreeMap<UnivCid, Univ>,
-  pub names: BTreeMap<NameCid, Name>,
-  pub exprs: BTreeMap<ExprCid, Expr>,
-  pub consts: BTreeMap<ConstCid, Const>,
-}
-
+// pub use constant::Const;
+// pub use expr::Expr;
+// pub use name::Name;
+// pub use univ::Univ;
+//
+// use alloc::{
+//  borrow::ToOwned,
+//  string::String,
+//};
+// use num_bigint::BigUint;
+// use sp_ipld::{
+//  dag_cbor::DagCborCodec,
+//  Codec,
+//  Ipld,
+//};
+// use sp_multihash::{
+//  Code,
+//  MultihashDigest,
+//};
+// use sp_std::{
+//  collections::btree_map::BTreeMap,
+//  vec::Vec,
+//};
+//
+//#[derive(Clone, PartialEq, Eq, Debug)]
+// pub struct Ctx {
+//  pub univs: BTreeMap<UnivCid, Univ>,
+//  pub names: BTreeMap<NameCid, Name>,
+//  pub exprs: BTreeMap<ExprCid, Expr>,
+//  pub consts: BTreeMap<ConstCid, Const>,
+//}
+//
 #[cfg(test)]
 pub mod tests {
   use quickcheck::Gen;

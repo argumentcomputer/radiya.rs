@@ -30,6 +30,6 @@ pub enum LocalDecl {
 }
 
 pub struct LocalContext {
-  fvar_id_to_decl: BTreeMap<Name, LocalDecl>,
-  decls: Vector<Option<LocalDecl>>,
+  pub fvar_id_to_decl: BTreeMap<Name, LocalDecl>,
+  pub decls: Vector<Option<LocalDecl>>,
 }

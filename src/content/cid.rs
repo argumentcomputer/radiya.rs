@@ -1,13 +1,21 @@
+use alloc::string::String;
 use sp_cid::Cid;
+use sp_ipld::Ipld;
 use sp_multihash::Multihash;
 
-use super::ipld_error::IpldError;
+use super::ipld::{
+  IpldEmbed,
+  IpldError,
+};
 
-const META: u64 = 0x1ea7_0001;
-const NAME: u64 = 0x1ea7_0002;
-const UNIV: u64 = 0x1ea7_0003;
-const EXPR: u64 = 0x1ea7_0004;
-const CONST: u64 = 0x1ea7_0005;
+// Prefix 0x10DE is hexspeak for LODE, since these codecs are the
+// content-addressed veins of meaning in the Truth Mines.
+pub const METADATA: u64 = 0x10DE_0001;
+pub const NAME: u64 = 0x10DE_0002;
+pub const UNIVERSE: u64 = 0x10DE_0003;
+pub const EXPRESSION: u64 = 0x10DE_0004;
+pub const LITERAL: u64 = 0x10DE_0005;
+pub const CONSTANT: u64 = 0x10DE_0006;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MetaCid(pub Cid);
@@ -21,66 +29,76 @@ pub struct ExprCid(pub Cid);
 pub struct ConstCid(pub Cid);
 
 impl MetaCid {
-  pub fn new(hash: Multihash) -> Self { MetaCid(Cid::new_v1(META, hash)) }
+  pub fn new(hash: Multihash) -> Self { MetaCid(Cid::new_v1(METADATA, hash)) }
+}
 
-  pub fn from_cid(cid: Cid) -> Result<Self, IpldError> {
-    if cid.codec() == META {
-      Ok(MetaCid(cid))
-    }
-    else {
-      Err(IpldError::MetaCid(cid))
+impl IpldEmbed for MetaCid {
+  fn to_ipld(&self) -> Ipld { Ipld::Link(self.0) }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    match ipld {
+      Ipld::Link(cid) if cid.codec() == METADATA => Ok(MetaCid(*cid)),
+      x => Err(IpldError::Expected(String::from("MetaCid"), x.clone())),
     }
   }
 }
 
 impl NameCid {
   pub fn new(hash: Multihash) -> Self { NameCid(Cid::new_v1(NAME, hash)) }
+}
 
-  pub fn from_cid(cid: Cid) -> Result<Self, IpldError> {
-    if cid.codec() == NAME {
-      Ok(NameCid(cid))
-    }
-    else {
-      Err(IpldError::NameCid(cid))
+impl IpldEmbed for NameCid {
+  fn to_ipld(&self) -> Ipld { Ipld::Link(self.0) }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    match ipld {
+      Ipld::Link(cid) if cid.codec() == NAME => Ok(NameCid(*cid)),
+      x => Err(IpldError::Expected(String::from("NameCid"), x.clone())),
     }
   }
 }
 
 impl UnivCid {
-  pub fn new(hash: Multihash) -> Self { UnivCid(Cid::new_v1(UNIV, hash)) }
+  pub fn new(hash: Multihash) -> Self { UnivCid(Cid::new_v1(UNIVERSE, hash)) }
+}
 
-  pub fn from_cid(cid: Cid) -> Result<Self, IpldError> {
-    if cid.codec() == UNIV {
-      Ok(UnivCid(cid))
-    }
-    else {
-      Err(IpldError::UnivCid(cid))
+impl IpldEmbed for UnivCid {
+  fn to_ipld(&self) -> Ipld { Ipld::Link(self.0) }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    match ipld {
+      Ipld::Link(cid) if cid.codec() == UNIVERSE => Ok(UnivCid(*cid)),
+      x => Err(IpldError::Expected(String::from("UnivCid"), x.clone())),
     }
   }
 }
 
 impl ExprCid {
-  pub fn new(hash: Multihash) -> Self { ExprCid(Cid::new_v1(EXPR, hash)) }
+  pub fn new(hash: Multihash) -> Self { ExprCid(Cid::new_v1(EXPRESSION, hash)) }
+}
 
-  pub fn from_cid(cid: Cid) -> Result<Self, IpldError> {
-    if cid.codec() == EXPR {
-      Ok(ExprCid(cid))
-    }
-    else {
-      Err(IpldError::ExprCid(cid))
+impl IpldEmbed for ExprCid {
+  fn to_ipld(&self) -> Ipld { Ipld::Link(self.0) }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    match ipld {
+      Ipld::Link(cid) if cid.codec() == EXPRESSION => Ok(ExprCid(*cid)),
+      x => Err(IpldError::Expected(String::from("ExprCid"), x.clone())),
     }
   }
 }
 
 impl ConstCid {
-  pub fn new(hash: Multihash) -> Self { ConstCid(Cid::new_v1(CONST, hash)) }
+  pub fn new(hash: Multihash) -> Self { ConstCid(Cid::new_v1(CONSTANT, hash)) }
+}
 
-  pub fn from_cid(cid: Cid) -> Result<Self, IpldError> {
-    if cid.codec() == CONST {
-      Ok(ConstCid(cid))
-    }
-    else {
-      Err(IpldError::ConstCid(cid))
+impl IpldEmbed for ConstCid {
+  fn to_ipld(&self) -> Ipld { Ipld::Link(self.0) }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    match ipld {
+      Ipld::Link(cid) if cid.codec() == CONSTANT => Ok(ConstCid(*cid)),
+      x => Err(IpldError::Expected(String::from("ConstCid"), x.clone())),
     }
   }
 }
@@ -110,12 +128,12 @@ pub mod tests {
     fn arbitrary(g: &mut Gen) -> Self { NameCid(arbitrary_cid(g, NAME)) }
   }
   impl Arbitrary for UnivCid {
-    fn arbitrary(g: &mut Gen) -> Self { UnivCid(arbitrary_cid(g, UNIV)) }
+    fn arbitrary(g: &mut Gen) -> Self { UnivCid(arbitrary_cid(g, UNIVERSE)) }
   }
   impl Arbitrary for ExprCid {
-    fn arbitrary(g: &mut Gen) -> Self { ExprCid(arbitrary_cid(g, EXPR)) }
+    fn arbitrary(g: &mut Gen) -> Self { ExprCid(arbitrary_cid(g, EXPRESSION)) }
   }
   impl Arbitrary for ConstCid {
-    fn arbitrary(g: &mut Gen) -> Self { ConstCid(arbitrary_cid(g, CONST)) }
+    fn arbitrary(g: &mut Gen) -> Self { ConstCid(arbitrary_cid(g, CONSTANT)) }
   }
 }

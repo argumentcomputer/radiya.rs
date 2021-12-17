@@ -4,8 +4,13 @@ use crate::{
       ConstCid,
       ExprCid,
       UnivCid,
+      EXPRESSION,
+      LITERAL,
     },
-    ipld_error::IpldError,
+    ipld::{
+      IpldEmbed,
+      IpldError,
+    },
   },
   expression::{
     BinderInfo,
@@ -21,17 +26,8 @@ use alloc::{
 };
 
 use sp_im::vector::Vector;
-use sp_ipld::{
-  dag_cbor::DagCborCodec,
-  Codec,
-  Ipld,
-};
+use sp_ipld::Ipld;
 use sp_std::vec::Vec;
-
-use sp_multihash::{
-  Code,
-  MultihashDigest,
-};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expr {
@@ -43,41 +39,11 @@ pub enum Expr {
   Pi { info: BinderInfo, typ: ExprCid, bod: ExprCid },
   Let { typ: ExprCid, val: ExprCid, bod: ExprCid },
   Lit { val: Literal },
+  Fix { bod: ExprCid },
 }
 
-impl Literal {
-  pub fn to_ipld(&self) -> Ipld {
-    match self {
-      Literal::Nat(x) => Ipld::List(vec![
-        Ipld::Integer(6),
-        Ipld::Integer(0),
-        Ipld::Bytes(x.to_bytes_be()),
-      ]),
-      Literal::Str(x) => Ipld::List(vec![
-        Ipld::Integer(6),
-        Ipld::Integer(1),
-        Ipld::String(x.clone()),
-      ]),
-    }
-  }
-
-  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
-    use Ipld::*;
-    match ipld {
-      List(xs) => match xs.as_slice() {
-        [Integer(6), Integer(0), Bytes(i)] => {
-          Ok(Literal::Nat(BigUint::from_bytes_be(i)))
-        }
-        [Integer(6), Integer(1), String(s)] => Ok(Literal::Str(s.to_owned())),
-        xs => Err(IpldError::Expr(List(xs.to_owned()))),
-      },
-      x => Err(IpldError::Literal(x.clone())),
-    }
-  }
-}
-
-impl BinderInfo {
-  pub fn to_ipld(self) -> Ipld {
+impl IpldEmbed for BinderInfo {
+  fn to_ipld(&self) -> Ipld {
     match self {
       BinderInfo::Default => Ipld::Integer(0),
       BinderInfo::Implicit => Ipld::Integer(1),
@@ -87,14 +53,48 @@ impl BinderInfo {
     }
   }
 
-  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     match ipld {
       Ipld::Integer(0) => Ok(BinderInfo::Default),
       Ipld::Integer(1) => Ok(BinderInfo::Implicit),
       Ipld::Integer(2) => Ok(BinderInfo::StrictImplicit),
       Ipld::Integer(3) => Ok(BinderInfo::InstImplicit),
       Ipld::Integer(4) => Ok(BinderInfo::AuxDecl),
-      _ => Err(IpldError::BinderInfo(ipld.clone())),
+      _ => Err(IpldError::Expected(String::from("BinderInfo"), ipld.clone())),
+    }
+  }
+}
+
+impl IpldEmbed for Literal {
+  fn to_ipld(&self) -> Ipld {
+    match self {
+      Literal::Nat(x) => Ipld::List(vec![
+        Ipld::Integer(LITERAL.into()),
+        Ipld::Integer(0),
+        x.to_ipld(),
+      ]),
+      Literal::Str(x) => Ipld::List(vec![
+        Ipld::Integer(LITERAL.into()),
+        Ipld::Integer(1),
+        x.to_ipld(),
+      ]),
+    }
+  }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    use Ipld::*;
+    let tag: i128 = LITERAL.into();
+    match ipld {
+      List(xs) => match xs.as_slice() {
+        [Integer(t), Integer(0), Bytes(i)] if *t == tag => {
+          Ok(Literal::Nat(BigUint::from_bytes_be(i)))
+        }
+        [Integer(t), Integer(1), String(s)] if *t == tag => {
+          Ok(Literal::Str(s.to_owned()))
+        }
+        xs => Err(IpldError::expected("Expression", &List(xs.to_owned()))),
+      },
+      x => Err(IpldError::expected("Expression", x)),
     }
   }
 }
@@ -103,121 +103,123 @@ impl Expr {
   pub fn to_ipld(&self) -> Ipld {
     match self {
       Self::Var { idx } => Ipld::List(vec![
-        Ipld::Integer(4),
+        Ipld::Integer(EXPRESSION.into()),
         Ipld::Integer(0),
-        Ipld::Bytes(idx.to_bytes_be()),
+        idx.to_ipld(),
       ]),
-      Self::Sort { univ } => {
-        Ipld::List(vec![Ipld::Integer(4), Ipld::Integer(1), Ipld::Link(univ.0)])
-      }
+      Self::Sort { univ } => Ipld::List(vec![
+        Ipld::Integer(EXPRESSION.into()),
+        Ipld::Integer(1),
+        univ.to_ipld(),
+      ]),
       Self::Const { constant, levels } => {
         let mut vec = Vec::new();
         for level in levels {
           vec.push(Ipld::Link(level.0));
         }
         Ipld::List(vec![
-          Ipld::Integer(4),
+          Ipld::Integer(EXPRESSION.into()),
           Ipld::Integer(2),
-          Ipld::Link(constant.0),
+          constant.to_ipld(),
           Ipld::List(vec),
         ])
       }
       Self::App { fun, arg } => Ipld::List(vec![
-        Ipld::Integer(4),
+        Ipld::Integer(EXPRESSION.into()),
         Ipld::Integer(3),
-        Ipld::Link(fun.0),
-        Ipld::Link(arg.0),
+        fun.to_ipld(),
+        arg.to_ipld(),
       ]),
       Self::Lam { info, typ, bod } => Ipld::List(vec![
-        Ipld::Integer(4),
+        Ipld::Integer(EXPRESSION.into()),
         Ipld::Integer(4),
         info.to_ipld(),
-        Ipld::Link(typ.0),
-        Ipld::Link(bod.0),
+        typ.to_ipld(),
+        bod.to_ipld(),
       ]),
       Self::Pi { info, typ, bod } => Ipld::List(vec![
-        Ipld::Integer(4),
+        Ipld::Integer(EXPRESSION.into()),
         Ipld::Integer(5),
         info.to_ipld(),
-        Ipld::Link(typ.0),
-        Ipld::Link(bod.0),
+        typ.to_ipld(),
+        bod.to_ipld(),
       ]),
       Self::Let { typ, val, bod } => Ipld::List(vec![
-        Ipld::Integer(4),
+        Ipld::Integer(EXPRESSION.into()),
         Ipld::Integer(6),
-        Ipld::Link(typ.0),
-        Ipld::Link(val.0),
-        Ipld::Link(bod.0),
+        typ.to_ipld(),
+        val.to_ipld(),
+        bod.to_ipld(),
       ]),
-      Self::Lit { val } => {
-        Ipld::List(vec![Ipld::Integer(4), Ipld::Integer(7), val.to_ipld()])
-      }
+      Self::Lit { val } => Ipld::List(vec![
+        Ipld::Integer(EXPRESSION.into()),
+        Ipld::Integer(7),
+        val.to_ipld(),
+      ]),
+      Self::Fix { bod } => Ipld::List(vec![
+        Ipld::Integer(EXPRESSION.into()),
+        Ipld::Integer(8),
+        bod.to_ipld(),
+      ]),
     }
-  }
-
-  pub fn cid(&self) -> ExprCid {
-    ExprCid::new(Code::Blake3_256.digest(
-      DagCborCodec.encode(&self.to_ipld()).unwrap().into_inner().as_ref(),
-    ))
   }
 
   pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     use Ipld::*;
+    let tag: i128 = EXPRESSION.into();
     match ipld {
       List(xs) => match xs.as_slice() {
-        [Integer(4), Integer(0), Bytes(i)] => {
-          Ok(Expr::Var { idx: BigUint::from_bytes_be(i) })
+        [Integer(t), Integer(0), idx] if *t == tag => {
+          let idx = BigUint::from_ipld(idx)?;
+          Ok(Expr::Var { idx })
         }
-        [Integer(4), Integer(1), Link(u)] => {
-          let univ = UnivCid::from_cid(*u)?;
+        [Integer(t), Integer(1), univ] if *t == tag => {
+          let univ = UnivCid::from_ipld(univ)?;
           Ok(Expr::Sort { univ })
         }
-        [Integer(4), Integer(2), Link(n), List(ls)] => {
-          let constant = ConstCid::from_cid(*n)?;
+        [Integer(t), Integer(2), con, List(ls)] if *t == tag => {
+          let constant = ConstCid::from_ipld(con)?;
           let mut levels = Vec::new();
           for l in ls {
-            match l {
-              Link(l) => {
-                let level = UnivCid::from_cid(*l)?;
-                levels.push(level);
-              }
-              _ => {
-                return Err(IpldError::Univ(l.clone()));
-              }
-            }
+            let level = UnivCid::from_ipld(l)?;
+            levels.push(level);
           }
           Ok(Expr::Const { constant, levels: levels.into() })
         }
-        [Integer(4), Integer(3), Link(f), Link(a)] => {
-          let fun = ExprCid::from_cid(*f)?;
-          let arg = ExprCid::from_cid(*a)?;
+        [Integer(t), Integer(3), fun, arg] if *t == tag => {
+          let fun = ExprCid::from_ipld(fun)?;
+          let arg = ExprCid::from_ipld(arg)?;
           Ok(Expr::App { fun, arg })
         }
-        [Integer(4), Integer(4), i, Link(t), Link(b)] => {
-          let info = BinderInfo::from_ipld(i)?;
-          let typ = ExprCid::from_cid(*t)?;
-          let bod = ExprCid::from_cid(*b)?;
+        [Integer(t), Integer(4), info, typ, bod] if *t == tag => {
+          let info = BinderInfo::from_ipld(info)?;
+          let typ = ExprCid::from_ipld(typ)?;
+          let bod = ExprCid::from_ipld(bod)?;
           Ok(Expr::Lam { info, typ, bod })
         }
-        [Integer(4), Integer(5), i, Link(t), Link(b)] => {
-          let info = BinderInfo::from_ipld(i)?;
-          let typ = ExprCid::from_cid(*t)?;
-          let bod = ExprCid::from_cid(*b)?;
+        [Integer(t), Integer(5), info, typ, bod] if *t == tag => {
+          let info = BinderInfo::from_ipld(info)?;
+          let typ = ExprCid::from_ipld(typ)?;
+          let bod = ExprCid::from_ipld(bod)?;
           Ok(Expr::Pi { info, typ, bod })
         }
-        [Integer(4), Integer(6), Link(t), Link(v), Link(b)] => {
-          let typ = ExprCid::from_cid(*t)?;
-          let val = ExprCid::from_cid(*v)?;
-          let bod = ExprCid::from_cid(*b)?;
+        [Integer(t), Integer(6), typ, val, bod] if *t == tag => {
+          let typ = ExprCid::from_ipld(typ)?;
+          let val = ExprCid::from_ipld(val)?;
+          let bod = ExprCid::from_ipld(bod)?;
           Ok(Expr::Let { typ, val, bod })
         }
-        [Integer(4), Integer(7), lit] => {
+        [Integer(t), Integer(7), lit] if *t == tag => {
           let lit = Literal::from_ipld(lit)?;
           Ok(Expr::Lit { val: lit })
         }
-        xs => Err(IpldError::Expr(List(xs.to_owned()))),
+        [Integer(t), Integer(8), bod] if *t == tag => {
+          let bod = ExprCid::from_ipld(bod)?;
+          Ok(Expr::Fix { bod })
+        }
+        xs => Err(IpldError::expected("Expression", &List(xs.to_owned()))),
       },
-      xs => Err(IpldError::Expr(xs.to_owned())),
+      xs => Err(IpldError::expected("Expression", xs)),
     }
   }
 }
