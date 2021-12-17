@@ -24,7 +24,7 @@ pub mod content;
 pub mod check;
 pub mod expression;
 pub mod name;
-// pub mod parse;
+pub mod parse;
 pub mod universe;
 
 #[cfg(test)]

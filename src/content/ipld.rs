@@ -11,6 +11,7 @@ use sp_multihash::{
   MultihashDigest,
 };
 use sp_std::{
+  convert::TryInto,
   num::TryFromIntError,
   vec::Vec,
 };
@@ -67,6 +68,20 @@ impl IpldEmbed for String {
   }
 }
 
+impl IpldEmbed for u64 {
+  fn to_ipld(&self) -> Ipld { Ipld::Integer(*self as i128) }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    match ipld {
+      Ipld::Integer(x) => {
+        let x = (*x).try_into().map_err(IpldError::U64)?;
+        Ok(x)
+      }
+      xs => Err(IpldError::expected("u64", xs)),
+    }
+  }
+}
+
 impl IpldEmbed for BigUint {
   fn to_ipld(&self) -> Ipld { Ipld::Bytes(self.to_bytes_be()) }
 
@@ -93,6 +108,25 @@ impl<T: IpldEmbed> IpldEmbed for Vec<T> {
         Ok(ys)
       }
       xs => Err(IpldError::expected("List", xs)),
+    }
+  }
+}
+
+impl<T: IpldEmbed> IpldEmbed for Option<T> {
+  fn to_ipld(&self) -> Ipld {
+    match self {
+      Some(x) => x.to_ipld(),
+      None => Ipld::Null,
+    }
+  }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    match ipld {
+      Ipld::Null => Ok(None),
+      x => {
+        let x = T::from_ipld(x)?;
+        Ok(Some(x))
+      }
     }
   }
 }

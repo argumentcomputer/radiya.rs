@@ -3,11 +3,17 @@ use crate::content::{
     ConstCid,
     ExprCid,
     NameCid,
+    CONSTANT,
   },
   ipld::{
     IpldEmbed,
     IpldError,
   },
+};
+
+use crate::constant::{
+  DefinitionSafety,
+  QuotKind,
 };
 
 use alloc::borrow::ToOwned;
@@ -24,23 +30,6 @@ use sp_multihash::{
   Code,
   MultihashDigest,
 };
-
-use super::cid::CONSTANT;
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum DefinitionSafety {
-  Unsafe,
-  Safe,
-  Partial,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum QuotKind {
-  Type,
-  Ctor,
-  Lift,
-  Ind,
-}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecursorRule {

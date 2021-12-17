@@ -1,9 +1,11 @@
 pub mod cid;
 pub mod constant;
-// pub mod environment;
+pub mod environment;
 pub mod expr;
 pub mod ipld;
+pub mod metadata;
 pub mod name;
+pub mod position;
 pub mod univ;
 
 pub use cid::{

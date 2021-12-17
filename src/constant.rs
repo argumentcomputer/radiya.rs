@@ -24,6 +24,11 @@ pub struct RecursorRule {
   pub num_fields: BigUint,
   pub rhs: Expr,
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Intro {
+  ctor: Name,
+  typ: Expr,
+}
 
 pub enum Constant {
   Quot {

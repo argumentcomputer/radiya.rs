@@ -16,6 +16,7 @@ pub const UNIVERSE: u64 = 0x10DE_0003;
 pub const EXPRESSION: u64 = 0x10DE_0004;
 pub const LITERAL: u64 = 0x10DE_0005;
 pub const CONSTANT: u64 = 0x10DE_0006;
+pub const ENVIRONMENT: u64 = 0x10DE_0007;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MetaCid(pub Cid);
@@ -27,6 +28,10 @@ pub struct UnivCid(pub Cid);
 pub struct ExprCid(pub Cid);
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ConstCid(pub Cid);
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct LiteralCid(pub Cid);
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct EnvironmentCid(pub Cid);
 
 impl MetaCid {
   pub fn new(hash: Multihash) -> Self { MetaCid(Cid::new_v1(METADATA, hash)) }
@@ -132,6 +137,10 @@ pub mod tests {
   }
   impl Arbitrary for ExprCid {
     fn arbitrary(g: &mut Gen) -> Self { ExprCid(arbitrary_cid(g, EXPRESSION)) }
+  }
+
+  impl Arbitrary for MetaCid {
+    fn arbitrary(g: &mut Gen) -> Self { MetaCid(arbitrary_cid(g, METADATA)) }
   }
   impl Arbitrary for ConstCid {
     fn arbitrary(g: &mut Gen) -> Self { ConstCid(arbitrary_cid(g, CONSTANT)) }
