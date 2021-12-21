@@ -1,7 +1,10 @@
 use crate::content::{
   cid::{
+    NameCid,
     UnivCid,
-    UNIVERSE,
+    UnivMetaCid,
+    UNIV,
+    UNIV_META,
   },
   ipld::{
     IpldEmbed,
@@ -26,27 +29,27 @@ impl IpldEmbed for Univ {
   fn to_ipld(&self) -> Ipld {
     match self {
       Self::Zero => {
-        Ipld::List(vec![Ipld::Integer(UNIVERSE.into()), Ipld::Integer(0)])
+        Ipld::List(vec![Ipld::Integer(UNIV.into()), Ipld::Integer(0)])
       }
       Self::Succ { pred } => Ipld::List(vec![
-        Ipld::Integer(UNIVERSE.into()),
+        Ipld::Integer(UNIV.into()),
         Ipld::Integer(1),
         pred.to_ipld(),
       ]),
       Self::Max { lhs, rhs } => Ipld::List(vec![
-        Ipld::Integer(UNIVERSE.into()),
+        Ipld::Integer(UNIV.into()),
         Ipld::Integer(2),
         lhs.to_ipld(),
         rhs.to_ipld(),
       ]),
       Self::IMax { lhs, rhs } => Ipld::List(vec![
-        Ipld::Integer(UNIVERSE.into()),
+        Ipld::Integer(UNIV.into()),
         Ipld::Integer(3),
         lhs.to_ipld(),
         rhs.to_ipld(),
       ]),
       Self::Param { idx } => Ipld::List(vec![
-        Ipld::Integer(UNIVERSE.into()),
+        Ipld::Integer(UNIV.into()),
         Ipld::Integer(4),
         idx.to_ipld(),
       ]),
@@ -55,7 +58,7 @@ impl IpldEmbed for Univ {
 
   fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     use Ipld::*;
-    let tag: i128 = UNIVERSE.into();
+    let tag: i128 = UNIV.into();
     match ipld {
       List(xs) => match xs.as_slice() {
         [Integer(t), Integer(0)] if *t == tag => Ok(Univ::Zero),
@@ -84,11 +87,82 @@ impl IpldEmbed for Univ {
   }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UnivMeta {
+  Zero,
+  Succ(UnivMetaCid),
+  Max(UnivMetaCid, UnivMetaCid),
+  IMax(UnivMetaCid, UnivMetaCid),
+  Param(NameCid),
+}
+
+impl IpldEmbed for UnivMeta {
+  fn to_ipld(&self) -> Ipld {
+    match self {
+      Self::Zero => {
+        Ipld::List(vec![Ipld::Integer(UNIV_META.into()), Ipld::Integer(0)])
+      }
+      Self::Succ(pred) => Ipld::List(vec![
+        Ipld::Integer(UNIV_META.into()),
+        Ipld::Integer(1),
+        pred.to_ipld(),
+      ]),
+      Self::Max(lhs, rhs) => Ipld::List(vec![
+        Ipld::Integer(UNIV_META.into()),
+        Ipld::Integer(2),
+        lhs.to_ipld(),
+        rhs.to_ipld(),
+      ]),
+      Self::IMax(lhs, rhs) => Ipld::List(vec![
+        Ipld::Integer(UNIV_META.into()),
+        Ipld::Integer(3),
+        lhs.to_ipld(),
+        rhs.to_ipld(),
+      ]),
+      Self::Param(nam) => Ipld::List(vec![
+        Ipld::Integer(UNIV_META.into()),
+        Ipld::Integer(4),
+        nam.to_ipld(),
+      ]),
+    }
+  }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    use Ipld::*;
+    let tag: i128 = UNIV_META.into();
+    match ipld {
+      List(xs) => match xs.as_slice() {
+        [Integer(t), Integer(0)] if *t == tag => Ok(UnivMeta::Zero),
+        [Integer(t), Integer(1), pred] if *t == tag => {
+          let pred = UnivMetaCid::from_ipld(pred)?;
+          Ok(UnivMeta::Succ(pred))
+        }
+        [Integer(t), Integer(2), lhs, rhs] if *t == tag => {
+          let lhs = UnivMetaCid::from_ipld(lhs)?;
+          let rhs = UnivMetaCid::from_ipld(rhs)?;
+          Ok(UnivMeta::Max(lhs, rhs))
+        }
+        [Integer(t), Integer(3), lhs, rhs] if *t == tag => {
+          let lhs = UnivMetaCid::from_ipld(lhs)?;
+          let rhs = UnivMetaCid::from_ipld(rhs)?;
+          Ok(UnivMeta::IMax(lhs, rhs))
+        }
+        [Integer(t), Integer(4), nam] if *t == tag => {
+          let nam = NameCid::from_ipld(nam)?;
+          Ok(UnivMeta::Param(nam))
+        }
+        xs => Err(IpldError::expected("UnivMeta", &List(xs.to_owned()))),
+      },
+      xs => Err(IpldError::expected("UnivMeta", xs)),
+    }
+  }
+}
+
 #[cfg(test)]
 pub mod tests {
-  use crate::{
-    content::tests::frequency,
-    tests::arbitrary_big_uint,
+  use crate::tests::{
+    arbitrary_big_uint,
+    frequency,
   };
 
   use super::*;
@@ -121,10 +195,40 @@ pub mod tests {
       frequency(g, input)
     }
   }
+  impl Arbitrary for UnivMeta {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> UnivMeta>)> = vec![
+        (1, Box::new(|_| UnivMeta::Zero)),
+        (1, Box::new(|g| UnivMeta::Succ(Arbitrary::arbitrary(g)))),
+        (
+          1,
+          Box::new(|g| {
+            UnivMeta::Max(Arbitrary::arbitrary(g), Arbitrary::arbitrary(g))
+          }),
+        ),
+        (
+          1,
+          Box::new(|g| {
+            UnivMeta::IMax(Arbitrary::arbitrary(g), Arbitrary::arbitrary(g))
+          }),
+        ),
+        (1, Box::new(|g| UnivMeta::Param(Arbitrary::arbitrary(g)))),
+      ];
+      frequency(g, input)
+    }
+  }
 
   #[quickcheck]
   fn univ_ipld(x: Univ) -> bool {
     match Univ::from_ipld(&x.to_ipld()) {
+      Ok(y) => x == y,
+      _ => false,
+    }
+  }
+
+  #[quickcheck]
+  fn univ_meta_ipld(x: UnivMeta) -> bool {
+    match UnivMeta::from_ipld(&x.to_ipld()) {
       Ok(y) => x == y,
       _ => false,
     }

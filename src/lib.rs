@@ -34,6 +34,7 @@ mod tests {
     Arbitrary,
     Gen,
   };
+  use rand::Rng;
   use sp_std::ops::Range;
 
   pub fn gen_range(g: &mut Gen, range: Range<usize>) -> usize {
@@ -51,5 +52,42 @@ mod tests {
       let v: Vec<u8> = Arbitrary::arbitrary(g);
       BigUint::from_bytes_be(&v)
     })
+  }
+  pub fn frequency<T, F: Fn(&mut Gen) -> T>(
+    g: &mut Gen,
+    gens: sp_std::vec::Vec<(i64, F)>,
+  ) -> T {
+    if gens.iter().any(|(v, _)| *v < 0) {
+      panic!("Negative weight");
+    }
+    let sum: i64 = gens.iter().map(|x| x.0).sum();
+    let mut rng = rand::thread_rng();
+    let mut weight: i64 = rng.gen_range(1..=sum);
+    // let mut weight: i64 = g.rng.gen_range(1, sum);
+    for gen in gens {
+      if weight - gen.0 <= 0 {
+        return gen.1(g);
+      }
+      else {
+        weight -= gen.0;
+      }
+    }
+    panic!("Calculation error for weight = {}", weight);
+  }
+
+  pub fn next_case<T: Copy>(g: &mut Gen, gens: &Vec<(usize, T)>) -> T {
+    let sum: usize = gens.iter().map(|x| x.0).sum();
+    let mut weight: usize = gen_range(g, 1..sum);
+    for gen in gens {
+      match weight.checked_sub(gen.0) {
+        None | Some(0) => {
+          return gen.1;
+        }
+        _ => {
+          weight -= gen.0;
+        }
+      }
+    }
+    panic!("Calculation error for weight = {}", weight);
   }
 }

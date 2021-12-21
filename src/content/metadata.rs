@@ -10,7 +10,7 @@ use crate::{
       IpldError,
     },
   },
-  parse::position::Position,
+  parse::position::Pos,
 };
 use alloc::{
   borrow::ToOwned,
@@ -20,34 +20,94 @@ use alloc::{
 use sp_ipld::Ipld;
 use sp_std::vec::Vec;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Metadata {
-  Leaf,
-  Node {
+pub enum ExprMeta {
+  Var(Pos),
+  Sort(Pos, ExprMetaCid),
+  Const(Pos, NameCid, ConstMetaCid, Vec<UnivMetaCid>),
+  App(Pos, ExprMetaCid, ExprMetaCid),
+  Lam(Pos, NameCid, ExprMetaCid, ExprMetaCid),
+}
+
+pub enum ConstMeta {}
+
+impl Metadata {
+  pub fn leaf(pos: Option<Position>) -> Self {
+    Metadata {
+      pos,
+      name: None,
+      link: None,
+      params: vec![],
+      misc: vec![],
+      branch: vec![],
+    }
+  }
+
+  pub fn refer(
     pos: Option<Position>,
-    name: Option<NameCid>,
-    link: Option<MetaCid>,
-    misc: String,
-    branch: Vec<MetaCid>,
-  },
+    name: NameCid,
+    link: MetaCid,
+    xs: Vec<MetaCid>,
+  ) -> Self {
+    Metadata {
+      pos,
+      name: Some(name),
+      link: Some(link),
+      params: vec![],
+      misc: String::from(""),
+      branch: xs,
+    }
+  }
+
+  pub fn constant(
+    pos: Option<Position>,
+    name: NameCid,
+    params: Vec<NameCid>,
+    xs: Vec<MetaCid>,
+  ) -> Self {
+    Metadata {
+      pos,
+      name: Some(name),
+      link: None,
+      params,
+      misc: String::from(""),
+      branch: xs,
+    }
+  }
+
+  pub fn name(pos: Option<Position>, name: NameCid, xs: Vec<MetaCid>) -> Self {
+    Metadata {
+      pos,
+      name: Some(name),
+      link: None,
+      params: vec![],
+      misc: String::from(""),
+      branch: xs,
+    }
+  }
+
+  pub fn branch(pos: Option<Position>, xs: Vec<MetaCid>) -> Self {
+    Metadata {
+      pos,
+      name: None,
+      link: None,
+      params: vec![],
+      misc: String::from(""),
+      branch: xs,
+    }
+  }
 }
 
 impl IpldEmbed for Metadata {
   fn to_ipld(&self) -> Ipld {
-    match self {
-      Self::Leaf => {
-        Ipld::List(vec![Ipld::Integer(METADATA.into()), Ipld::Integer(0)])
-      }
-      Self::Node { pos, name, link, misc, branch } => Ipld::List(vec![
-        Ipld::Integer(METADATA.into()),
-        Ipld::Integer(1),
-        pos.to_ipld(),
-        name.to_ipld(),
-        link.to_ipld(),
-        misc.to_ipld(),
-        branch.to_ipld(),
-      ]),
-    }
+    Ipld::List(vec![
+      Ipld::Integer(METADATA.into()),
+      self.pos.to_ipld(),
+      self.name.to_ipld(),
+      self.link.to_ipld(),
+      self.params.to_ipld(),
+      self.misc.to_ipld(),
+      self.branch.to_ipld(),
+    ])
   }
 
   fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
@@ -55,16 +115,14 @@ impl IpldEmbed for Metadata {
     let tag: i128 = METADATA.into();
     match ipld {
       List(xs) => match xs.as_slice() {
-        [Integer(t), Integer(0)] if *t == tag => Ok(Metadata::Leaf),
-        [Integer(t), Integer(1), pos, name, link, misc, branch]
-          if *t == tag =>
-        {
+        [Integer(t), pos, name, link, params, misc, branch] if *t == tag => {
           let pos = IpldEmbed::from_ipld(pos)?;
           let name = IpldEmbed::from_ipld(name)?;
           let link = IpldEmbed::from_ipld(link)?;
+          let params: Vec<NameCid> = IpldEmbed::from_ipld(params)?;
           let misc = IpldEmbed::from_ipld(misc)?;
           let branch: Vec<MetaCid> = IpldEmbed::from_ipld(branch)?;
-          Ok(Metadata::Node { pos, name, link, misc, branch })
+          Ok(Metadata { pos, name, link, params, misc, branch })
         }
         xs => Err(IpldError::expected("Metadata", &Ipld::List(xs.to_owned()))),
       },
@@ -75,10 +133,7 @@ impl IpldEmbed for Metadata {
 
 #[cfg(test)]
 pub mod tests {
-  use crate::{
-    content::tests::frequency,
-    tests::gen_range,
-  };
+  use crate::tests::gen_range;
 
   use super::*;
   use quickcheck::{
@@ -88,27 +143,18 @@ pub mod tests {
 
   impl Arbitrary for Metadata {
     fn arbitrary(g: &mut Gen) -> Self {
-      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Metadata>)> = vec![
-        (1, Box::new(|_| Metadata::Leaf)),
-        (
-          1,
-          Box::new(|g| {
-            let mut branch = Vec::new();
-            let num = gen_range(g, 0..6);
-            for _ in 0..num {
-              branch.push(Arbitrary::arbitrary(g));
-            }
-            Metadata::Node {
-              pos: Arbitrary::arbitrary(g),
-              name: Arbitrary::arbitrary(g),
-              link: Arbitrary::arbitrary(g),
-              misc: Arbitrary::arbitrary(g),
-              branch,
-            }
-          }),
-        ),
-      ];
-      frequency(g, input)
+      let mut branch = Vec::new();
+      let num = gen_range(g, 0..6);
+      for _ in 0..num {
+        branch.push(Arbitrary::arbitrary(g));
+      }
+      Metadata {
+        pos: Arbitrary::arbitrary(g),
+        name: Arbitrary::arbitrary(g),
+        link: Arbitrary::arbitrary(g),
+        misc: Arbitrary::arbitrary(g),
+        branch,
+      }
     }
   }
 

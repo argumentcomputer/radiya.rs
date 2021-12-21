@@ -3,7 +3,7 @@ use crate::content::{
     ConstCid,
     ExprCid,
     NameCid,
-    CONSTANT,
+    CONST,
   },
   ipld::{
     IpldEmbed,
@@ -19,17 +19,8 @@ use crate::constant::{
 use alloc::borrow::ToOwned;
 
 use num_bigint::BigUint;
-use sp_ipld::{
-  dag_cbor::DagCborCodec,
-  Codec,
-  Ipld,
-};
+use sp_ipld::Ipld;
 use sp_std::vec::Vec;
-
-use sp_multihash::{
-  Code,
-  MultihashDigest,
-};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecursorRule {
@@ -77,6 +68,7 @@ pub enum Const {
     levels: BigUint,
     typ: ExprCid,
     params: BigUint,
+    indices: BigUint,
     intros: Vec<Intro>,
     is_unsafe: bool,
   },
@@ -194,21 +186,21 @@ impl Const {
   pub fn to_ipld(&self) -> Ipld {
     match self {
       Self::Quotient { levels, typ, kind } => Ipld::List(vec![
-        Ipld::Integer(CONSTANT.into()),
+        Ipld::Integer(CONST.into()),
         Ipld::Integer(0),
         levels.to_ipld(),
         typ.to_ipld(),
         kind.to_ipld(),
       ]),
       Self::Axiom { levels, typ, is_unsafe } => Ipld::List(vec![
-        Ipld::Integer(CONSTANT.into()),
+        Ipld::Integer(CONST.into()),
         Ipld::Integer(1),
         levels.to_ipld(),
         typ.to_ipld(),
         is_unsafe.to_ipld(),
       ]),
       Self::Definition { levels, typ, val, safety } => Ipld::List(vec![
-        Ipld::Integer(CONSTANT.into()),
+        Ipld::Integer(CONST.into()),
         Ipld::Integer(2),
         levels.to_ipld(),
         typ.to_ipld(),
@@ -216,34 +208,35 @@ impl Const {
         safety.to_ipld(),
       ]),
       Self::Theorem { levels, typ, val } => Ipld::List(vec![
-        Ipld::Integer(CONSTANT.into()),
+        Ipld::Integer(CONST.into()),
         Ipld::Integer(3),
         levels.to_ipld(),
         typ.to_ipld(),
         val.to_ipld(),
       ]),
       Self::Opaque { levels, typ, val, is_unsafe } => Ipld::List(vec![
-        Ipld::Integer(CONSTANT.into()),
+        Ipld::Integer(CONST.into()),
         Ipld::Integer(4),
         levels.to_ipld(),
         typ.to_ipld(),
         val.to_ipld(),
         is_unsafe.to_ipld(),
       ]),
-      Self::Inductive { levels, typ, params, intros, is_unsafe } => {
+      Self::Inductive { levels, typ, params, indices, intros, is_unsafe } => {
         Ipld::List(vec![
-          Ipld::Integer(CONSTANT.into()),
+          Ipld::Integer(CONST.into()),
           Ipld::Integer(5),
           levels.to_ipld(),
           typ.to_ipld(),
           params.to_ipld(),
+          indices.to_ipld(),
           intros.to_ipld(),
           is_unsafe.to_ipld(),
         ])
       }
       Self::Ctor { levels, typ, induct, cidx, params, fields, is_unsafe } => {
         Ipld::List(vec![
-          Ipld::Integer(CONSTANT.into()),
+          Ipld::Integer(CONST.into()),
           Ipld::Integer(6),
           levels.to_ipld(),
           typ.to_ipld(),
@@ -266,7 +259,7 @@ impl Const {
         k,
         is_unsafe,
       } => Ipld::List(vec![
-        Ipld::Integer(CONSTANT.into()),
+        Ipld::Integer(CONST.into()),
         Ipld::Integer(7),
         levels.to_ipld(),
         typ.to_ipld(),
@@ -282,15 +275,9 @@ impl Const {
     }
   }
 
-  pub fn cid(&self) -> ConstCid {
-    ConstCid::new(Code::Blake3_256.digest(
-      DagCborCodec.encode(&self.to_ipld()).unwrap().into_inner().as_ref(),
-    ))
-  }
-
   pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     use Ipld::*;
-    let tag: i128 = CONSTANT.into();
+    let tag: i128 = CONST.into();
     match ipld {
       List(xs) => match xs.as_slice() {
         [Integer(t), Integer(0), levels, typ, kind] if *t == tag => {
@@ -325,15 +312,23 @@ impl Const {
           let is_unsafe = bool::from_ipld(is_unsafe)?;
           Ok(Const::Opaque { levels, typ, val, is_unsafe })
         }
-        [Integer(t), Integer(5), levels, typ, params, intros, is_unsafe]
+        [Integer(t), Integer(5), levels, typ, params, indices, intros, is_unsafe]
           if *t == tag =>
         {
           let levels = BigUint::from_ipld(levels)?;
           let typ = ExprCid::from_ipld(typ)?;
           let params = BigUint::from_ipld(params)?;
+          let indices = BigUint::from_ipld(indices)?;
           let intros = IpldEmbed::from_ipld(intros)?;
           let is_unsafe = bool::from_ipld(is_unsafe)?;
-          Ok(Const::Inductive { levels, typ, params, intros, is_unsafe })
+          Ok(Const::Inductive {
+            levels,
+            typ,
+            params,
+            indices,
+            intros,
+            is_unsafe,
+          })
         }
         [Integer(t), Integer(6), levels, typ, induct, cidx, params, fields, is_unsafe]
           if *t == tag =>
@@ -390,12 +385,10 @@ impl Const {
 
 #[cfg(test)]
 pub mod tests {
-  use crate::{
-    content::tests::frequency,
-    tests::{
-      arbitrary_big_uint,
-      gen_range,
-    },
+  use crate::tests::{
+    arbitrary_big_uint,
+    frequency,
+    gen_range,
   };
 
   use super::*;
@@ -498,6 +491,7 @@ pub mod tests {
               levels: arbitrary_big_uint()(g),
               typ: Arbitrary::arbitrary(g),
               params: arbitrary_big_uint()(g),
+              indices: arbitrary_big_uint()(g),
               intros,
               is_unsafe: Arbitrary::arbitrary(g),
             }

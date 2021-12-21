@@ -2,9 +2,14 @@ use crate::{
   content::{
     cid::{
       ConstCid,
+      ConstMetaCid,
       ExprCid,
+      ExprMetaCid,
+      LitCid,
+      NameCid,
       UnivCid,
-      EXPRESSION,
+      UnivMetaCid,
+      EXPR,
       LITERAL,
     },
     ipld::{
@@ -16,6 +21,7 @@ use crate::{
     BinderInfo,
     Literal,
   },
+  parse::position::Pos,
 };
 
 use num_bigint::BigUint;
@@ -38,8 +44,21 @@ pub enum Expr {
   Lam { info: BinderInfo, typ: ExprCid, bod: ExprCid },
   Pi { info: BinderInfo, typ: ExprCid, bod: ExprCid },
   Let { typ: ExprCid, val: ExprCid, bod: ExprCid },
-  Lit { val: Literal },
+  Lit { val: LitCid },
   Fix { bod: ExprCid },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ExprMeta {
+  Var(Pos, NameCid),
+  Sort(Pos, UnivMetaCid),
+  Const(Pos, NameCid, ConstMetaCid, Vec<UnivMetaCid>),
+  App(Pos, ExprMetaCid, ExprMetaCid),
+  Lam(Pos, NameCid, ExprMetaCid, ExprMetaCid),
+  Pi(Pos, NameCid, ExprMetaCid, ExprMetaCid),
+  Let(Pos, NameCid, ExprMetaCid, ExprMetaCid, ExprMetaCid),
+  Lit(Pos),
+  Fix(Pos, NameCid, ExprMetaCid),
 }
 
 impl IpldEmbed for BinderInfo {
@@ -103,12 +122,12 @@ impl Expr {
   pub fn to_ipld(&self) -> Ipld {
     match self {
       Self::Var { idx } => Ipld::List(vec![
-        Ipld::Integer(EXPRESSION.into()),
+        Ipld::Integer(EXPR.into()),
         Ipld::Integer(0),
         idx.to_ipld(),
       ]),
       Self::Sort { univ } => Ipld::List(vec![
-        Ipld::Integer(EXPRESSION.into()),
+        Ipld::Integer(EXPR.into()),
         Ipld::Integer(1),
         univ.to_ipld(),
       ]),
@@ -118,46 +137,46 @@ impl Expr {
           vec.push(Ipld::Link(level.0));
         }
         Ipld::List(vec![
-          Ipld::Integer(EXPRESSION.into()),
+          Ipld::Integer(EXPR.into()),
           Ipld::Integer(2),
           constant.to_ipld(),
           Ipld::List(vec),
         ])
       }
       Self::App { fun, arg } => Ipld::List(vec![
-        Ipld::Integer(EXPRESSION.into()),
+        Ipld::Integer(EXPR.into()),
         Ipld::Integer(3),
         fun.to_ipld(),
         arg.to_ipld(),
       ]),
       Self::Lam { info, typ, bod } => Ipld::List(vec![
-        Ipld::Integer(EXPRESSION.into()),
+        Ipld::Integer(EXPR.into()),
         Ipld::Integer(4),
         info.to_ipld(),
         typ.to_ipld(),
         bod.to_ipld(),
       ]),
       Self::Pi { info, typ, bod } => Ipld::List(vec![
-        Ipld::Integer(EXPRESSION.into()),
+        Ipld::Integer(EXPR.into()),
         Ipld::Integer(5),
         info.to_ipld(),
         typ.to_ipld(),
         bod.to_ipld(),
       ]),
       Self::Let { typ, val, bod } => Ipld::List(vec![
-        Ipld::Integer(EXPRESSION.into()),
+        Ipld::Integer(EXPR.into()),
         Ipld::Integer(6),
         typ.to_ipld(),
         val.to_ipld(),
         bod.to_ipld(),
       ]),
       Self::Lit { val } => Ipld::List(vec![
-        Ipld::Integer(EXPRESSION.into()),
+        Ipld::Integer(EXPR.into()),
         Ipld::Integer(7),
         val.to_ipld(),
       ]),
       Self::Fix { bod } => Ipld::List(vec![
-        Ipld::Integer(EXPRESSION.into()),
+        Ipld::Integer(EXPR.into()),
         Ipld::Integer(8),
         bod.to_ipld(),
       ]),
@@ -166,7 +185,7 @@ impl Expr {
 
   pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     use Ipld::*;
-    let tag: i128 = EXPRESSION.into();
+    let tag: i128 = EXPR.into();
     match ipld {
       List(xs) => match xs.as_slice() {
         [Integer(t), Integer(0), idx] if *t == tag => {
@@ -210,8 +229,8 @@ impl Expr {
           Ok(Expr::Let { typ, val, bod })
         }
         [Integer(t), Integer(7), lit] if *t == tag => {
-          let lit = Literal::from_ipld(lit)?;
-          Ok(Expr::Lit { val: lit })
+          let val = LitCid::from_ipld(lit)?;
+          Ok(Expr::Lit { val })
         }
         [Integer(t), Integer(8), bod] if *t == tag => {
           let bod = ExprCid::from_ipld(bod)?;
@@ -226,12 +245,10 @@ impl Expr {
 
 #[cfg(test)]
 pub mod tests {
-  use crate::{
-    content::tests::frequency,
-    tests::{
-      arbitrary_big_uint,
-      gen_range,
-    },
+  use crate::tests::{
+    arbitrary_big_uint,
+    frequency,
+    gen_range,
   };
 
   use super::*;

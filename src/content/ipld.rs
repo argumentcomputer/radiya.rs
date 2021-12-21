@@ -23,7 +23,7 @@ pub trait IpldEmbed: Sized {
   fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError>;
 }
 
-pub fn cid_from_ipld(code: u64, ipld: &Ipld) -> Cid {
+pub fn cid(code: u64, ipld: &Ipld) -> Cid {
   Cid::new_v1(
     code,
     Code::Blake3_256

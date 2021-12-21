@@ -14,7 +14,7 @@ use alloc::string::{
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum NamePart {
   Str(String),
-  Num(BigUint),
+  Int(BigUint),
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -48,7 +48,7 @@ impl Name {
       }
       match p {
         NamePart::Str(s) => res.push_str(s),
-        NamePart::Num(n) => res.push_str(&format!("{}", n)),
+        NamePart::Int(n) => res.push_str(&format!("{}", n)),
       }
     }
     res
@@ -67,99 +67,51 @@ impl fmt::Display for Name {
   }
 }
 
-/// Generates unique names
-pub struct NameGenerator {
-  prefix: Name,
-  next_index: BigUint,
-}
-
-impl NameGenerator {
-  pub fn new(prefix: Name) -> Self {
-    NameGenerator { prefix, next_index: Zero::zero() }
-  }
-
-  pub fn next(&mut self) -> Name {
-    let name = self.prefix.append(NamePart::Num(self.next_index.clone()));
-    self.next_index = &self.next_index + BigUint::one();
-    name
-  }
-}
-
 #[macro_export]
 macro_rules! name {
   ( $ctx:expr ) => {
     Name::simple(&[$ctx])
   };
 }
-// use num_bigint::BigUint;
-// use sp_im::Vector;
-// use sp_std::{
-//  borrow::Borrow,
-//  fmt,
-//  ops::Deref,
-//  rc::Rc,
-//};
-// use alloc::string::{
-//  String,
-//  ToString,
-//};
-//
-//#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-// pub enum NamePart {
-//  Str(String),
-//  Num(BigUint),
-//}
-//
-//#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
-// pub struct Name {
-//  pub system: bool,
-//  pub parts: Vector<NamePart>,
-//}
-// impl Name {
-//  pub fn print(&self) -> String {
-//    let mut res = String::new();
-//    let mut iter = self.parts.iter().peekable();
-//    if let Some(_) = iter.peek() {
-//      res.push('.');
-//    }
-//    while let Some(p) = iter.next() {
-//      if let Some(_) = iter.peek() {
-//        res.push('.');
-//      }
-//      match p {
-//        NamePart::Str(s) => res.push_str(s),
-//        NamePart::Num(n) => res.push_str(&format!("{}", n)),
-//      }
-//    }
-//    res
-//  }
-//}
-// impl fmt::Debug for Name {
-//  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//    write!(f, "{}", self.print())
-//  }
-//}
-// impl fmt::Display for Name {
-//  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//    write!(f, "{}", self.print())
-//  }
-//}
-//
-//// impl AsRef<str> for Name {
-////  fn as_ref(&self) -> &str { self.inner.as_ref() }
-//// }
-//// impl<'a> From<&'a str> for Name {
-////  fn from(v: &str) -> Name { Self { inner: Rc::from(v) } }
-//// }
-//// impl From<String> for Name {
-////  fn from(v: String) -> Name { Self { inner: Rc::from(v) } }
-//// }
-//
-//// impl Borrow<str> for Name {
-////  fn borrow(&self) -> &str { self.inner.borrow() }
-//// }
-//// impl Deref for Name {
-////  type Target = str;
-////
-////  fn deref(&self) -> &str { self.inner.deref() }
-//// }
+
+#[cfg(test)]
+pub mod tests {
+  use crate::tests::{
+    arbitrary_big_uint,
+    frequency,
+    gen_range,
+  };
+
+  use super::*;
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+  pub fn arbitrary_name_str(g: &mut Gen) -> NamePart {
+    let s: String = Arbitrary::arbitrary(g);
+    let mut s: String =
+      s.chars().filter(|x| char::is_ascii_alphabetic(x)).collect();
+    s.truncate(6);
+    NamePart::Str(format!("_{}", s))
+  }
+
+  impl Arbitrary for NamePart {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> NamePart>)> = vec![
+        (1, Box::new(|g| NamePart::Int(arbitrary_big_uint()(g)))),
+        (1, Box::new(|g| arbitrary_name_str(g))),
+      ];
+      frequency(g, input)
+    }
+  }
+  impl Arbitrary for Name {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let mut vec = Vec::new();
+      let num = gen_range(g, 0..6);
+      for _ in 0..num {
+        vec.push(Arbitrary::arbitrary(g));
+      }
+      Name { parts: Vector::from(vec) }
+    }
+  }
+}

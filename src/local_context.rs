@@ -5,7 +5,7 @@ use num_bigint::BigUint;
 use crate::{
   expression::{
     BinderInfo,
-    Expr,
+    Expression,
   },
   name::Name,
 };
@@ -17,15 +17,15 @@ pub enum LocalDecl {
     index: BigUint,
     name: Name,
     user_name: Name,
-    typ: Expr,
+    typ: Expression,
     bi: BinderInfo,
   },
   LDecl {
     index: BigUint,
     name: Name,
     user_name: Name,
-    typ: Expr,
-    value: Expr,
+    typ: Expression,
+    value: Expression,
   },
 }
 

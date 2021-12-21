@@ -70,9 +70,9 @@ impl IpldEmbed for Name {
 
 #[cfg(test)]
 pub mod tests {
-  use crate::{
-    content::tests::frequency,
-    tests::arbitrary_big_uint,
+  use crate::tests::{
+    arbitrary_big_uint,
+    frequency,
   };
 
   use super::*;

@@ -4,7 +4,7 @@ use alloc::string::String;
 
 use crate::{
   constant::Constant,
-  expression::Expr,
+  expression::Expression,
   local_context::LocalContext,
   name::Name,
 };
@@ -25,42 +25,42 @@ pub enum KernelException {
   DeclTypeMismatch {
     env: Environment,
     decl: Constant,
-    given_type: Expr,
+    given_type: Expression,
   },
   DeclHasMVars {
     env: Environment,
     name: Name,
-    expr: Expr,
+    expr: Expression,
   },
   FunExpected {
     env: Environment,
     lctx: LocalContext,
-    expr: Expr,
+    expr: Expression,
   },
   TypeExpected {
     env: Environment,
     lctx: LocalContext,
-    expr: Expr,
+    expr: Expression,
   },
   LetTypeMismatch {
     env: Environment,
     lctx: LocalContext,
     name: Name,
-    given_type: Expr,
-    expected_type: Expr,
+    given_type: Expression,
+    expected_type: Expression,
   },
-  ExprTypeMismatch {
+  ExpressionTypeMismatch {
     env: Environment,
     lctx: LocalContext,
-    expr: Expr,
-    expected_type: Expr,
+    expr: Expression,
+    expected_type: Expression,
   },
   AppTypeMismatch {
     env: Environment,
     lctx: LocalContext,
-    app: Expr,
-    fun_type: Expr,
-    arg_type: Expr,
+    app: Expression,
+    fun_type: Expression,
+    arg_type: Expression,
   },
   Other {
     msg: String,

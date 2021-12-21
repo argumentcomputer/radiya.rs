@@ -22,6 +22,8 @@ pub struct Position {
   pub upto_column: u64,
 }
 
+pub type Pos = Option<Position>;
+
 impl Position {
   pub fn range(self, input: String) -> String {
     let mut res = String::new();
