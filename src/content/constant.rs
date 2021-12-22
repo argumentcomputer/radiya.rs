@@ -55,12 +55,6 @@ pub enum Const {
     is_unsafe: bool,
     uid: Cid,
   },
-  Definition {
-    levels: BigUint,
-    typ: ExprCid,
-    val: ExprCid,
-    safety: DefinitionSafety,
-  },
   Theorem {
     levels: BigUint,
     typ: ExprCid,
@@ -72,6 +66,12 @@ pub enum Const {
     val: ExprCid,
     is_unsafe: bool,
     uid: Cid,
+  },
+  Definition {
+    levels: BigUint,
+    typ: ExprCid,
+    val: ExprCid,
+    safety: DefinitionSafety,
   },
   Inductive {
     levels: BigUint,
@@ -109,57 +109,57 @@ pub enum ConstMeta {
   Quotient {
     pos: Pos,
     name: NameCid,
-    levels: Vec<NameCid>,
-    typ: ExprMetaCid,
+    levels_meta: Vec<NameCid>,
+    typ_meta: ExprMetaCid,
   },
   Axiom {
     pos: Pos,
     name: NameCid,
-    levels: Vec<NameCid>,
-    typ: ExprMetaCid,
+    levels_meta: Vec<NameCid>,
+    typ_meta: ExprMetaCid,
   },
   Theorem {
     pos: Pos,
     name: NameCid,
-    levels: Vec<NameCid>,
-    typ: ExprMetaCid,
-    val: ExprMetaCid,
+    levels_meta: Vec<NameCid>,
+    typ_meta: ExprMetaCid,
+    val_meta: ExprMetaCid,
   },
   Opaque {
     pos: Pos,
     name: NameCid,
-    levels: Vec<NameCid>,
-    typ: ExprMetaCid,
-    val: ExprMetaCid,
+    levels_meta: Vec<NameCid>,
+    typ_meta: ExprMetaCid,
+    val_meta: ExprMetaCid,
   },
   Definition {
     pos: Pos,
     name: NameCid,
-    levels: Vec<NameCid>,
-    typ: ExprMetaCid,
-    val: ExprMetaCid,
+    levels_meta: Vec<NameCid>,
+    typ_meta: ExprMetaCid,
+    val_meta: ExprMetaCid,
   },
   Inductive {
     pos: Pos,
     name: NameCid,
-    levels: Vec<NameCid>,
-    typ: ExprMetaCid,
-    ctors: Vec<ExprMetaCid>,
+    levels_meta: Vec<NameCid>,
+    typ_meta: ExprMetaCid,
+    intros_meta: Vec<ExprMetaCid>,
   },
   Constructor {
     pos: Pos,
     name: NameCid,
-    levels: Vec<NameCid>,
-    typ: ExprMetaCid,
-    induct: ConstMetaCid,
+    levels_meta: Vec<NameCid>,
+    typ_meta: ExprMetaCid,
+    induct_meta: ConstMetaCid,
   },
   Recursor {
     pos: Pos,
     name: NameCid,
-    levels: Vec<NameCid>,
-    typ: ExprMetaCid,
-    induct: ConstMetaCid,
-    rules: Vec<ExprMetaCid>,
+    levels_meta: Vec<NameCid>,
+    typ_meta: ExprMetaCid,
+    induct_meta: ConstMetaCid,
+    rules_meta: Vec<ExprMetaCid>,
   },
 }
 
@@ -466,79 +466,94 @@ impl IpldEmbed for Const {
 impl IpldEmbed for ConstMeta {
   fn to_ipld(&self) -> Ipld {
     match self {
-      Self::Quotient { pos, name, levels, typ } => Ipld::List(vec![
+      Self::Quotient { pos, name, levels_meta, typ_meta } => Ipld::List(vec![
         Ipld::Integer(CONST_META.into()),
         Ipld::Integer(0),
         pos.to_ipld(),
         name.to_ipld(),
-        levels.to_ipld(),
-        typ.to_ipld(),
+        levels_meta.to_ipld(),
+        typ_meta.to_ipld(),
       ]),
-      Self::Axiom { pos, name, levels, typ } => Ipld::List(vec![
+      Self::Axiom { pos, name, levels_meta, typ_meta } => Ipld::List(vec![
         Ipld::Integer(CONST_META.into()),
         Ipld::Integer(1),
         pos.to_ipld(),
         name.to_ipld(),
-        levels.to_ipld(),
-        typ.to_ipld(),
+        levels_meta.to_ipld(),
+        typ_meta.to_ipld(),
       ]),
-      Self::Definition { pos, name, levels, typ, val } => Ipld::List(vec![
-        Ipld::Integer(CONST_META.into()),
-        Ipld::Integer(2),
-        pos.to_ipld(),
-        name.to_ipld(),
-        levels.to_ipld(),
-        typ.to_ipld(),
-        val.to_ipld(),
-      ]),
-      Self::Theorem { pos, name, levels, typ, val } => Ipld::List(vec![
-        Ipld::Integer(CONST_META.into()),
-        Ipld::Integer(3),
-        pos.to_ipld(),
-        name.to_ipld(),
-        levels.to_ipld(),
-        typ.to_ipld(),
-        val.to_ipld(),
-      ]),
-      Self::Opaque { pos, name, levels, typ, val } => Ipld::List(vec![
-        Ipld::Integer(CONST_META.into()),
-        Ipld::Integer(4),
-        pos.to_ipld(),
-        name.to_ipld(),
-        levels.to_ipld(),
-        typ.to_ipld(),
-        val.to_ipld(),
-      ]),
-      Self::Inductive { pos, name, levels, typ, ctors } => Ipld::List(vec![
-        Ipld::Integer(CONST_META.into()),
-        Ipld::Integer(5),
-        pos.to_ipld(),
-        name.to_ipld(),
-        levels.to_ipld(),
-        typ.to_ipld(),
-        ctors.to_ipld(),
-      ]),
-      Self::Constructor { pos, name, levels, typ, induct } => Ipld::List(vec![
-        Ipld::Integer(CONST_META.into()),
-        Ipld::Integer(6),
-        pos.to_ipld(),
-        name.to_ipld(),
-        levels.to_ipld(),
-        typ.to_ipld(),
-        induct.to_ipld(),
-      ]),
-      Self::Recursor { pos, name, levels, typ, induct, rules } => {
+      Self::Definition { pos, name, levels_meta, typ_meta, val_meta } => {
         Ipld::List(vec![
           Ipld::Integer(CONST_META.into()),
-          Ipld::Integer(7),
+          Ipld::Integer(2),
           pos.to_ipld(),
           name.to_ipld(),
-          levels.to_ipld(),
-          typ.to_ipld(),
-          induct.to_ipld(),
-          rules.to_ipld(),
+          levels_meta.to_ipld(),
+          typ_meta.to_ipld(),
+          val_meta.to_ipld(),
         ])
       }
+      Self::Theorem { pos, name, levels_meta, typ_meta, val_meta } => {
+        Ipld::List(vec![
+          Ipld::Integer(CONST_META.into()),
+          Ipld::Integer(3),
+          pos.to_ipld(),
+          name.to_ipld(),
+          levels_meta.to_ipld(),
+          typ_meta.to_ipld(),
+          val_meta.to_ipld(),
+        ])
+      }
+      Self::Opaque { pos, name, levels_meta, typ_meta, val_meta } => {
+        Ipld::List(vec![
+          Ipld::Integer(CONST_META.into()),
+          Ipld::Integer(4),
+          pos.to_ipld(),
+          name.to_ipld(),
+          levels_meta.to_ipld(),
+          typ_meta.to_ipld(),
+          val_meta.to_ipld(),
+        ])
+      }
+      Self::Inductive { pos, name, levels_meta, typ_meta, intros_meta } => {
+        Ipld::List(vec![
+          Ipld::Integer(CONST_META.into()),
+          Ipld::Integer(5),
+          pos.to_ipld(),
+          name.to_ipld(),
+          levels_meta.to_ipld(),
+          typ_meta.to_ipld(),
+          intros_meta.to_ipld(),
+        ])
+      }
+      Self::Constructor { pos, name, levels_meta, typ_meta, induct_meta } => {
+        Ipld::List(vec![
+          Ipld::Integer(CONST_META.into()),
+          Ipld::Integer(6),
+          pos.to_ipld(),
+          name.to_ipld(),
+          levels_meta.to_ipld(),
+          typ_meta.to_ipld(),
+          induct_meta.to_ipld(),
+        ])
+      }
+      Self::Recursor {
+        pos,
+        name,
+        levels_meta,
+        typ_meta,
+        induct_meta,
+        rules_meta,
+      } => Ipld::List(vec![
+        Ipld::Integer(CONST_META.into()),
+        Ipld::Integer(7),
+        pos.to_ipld(),
+        name.to_ipld(),
+        levels_meta.to_ipld(),
+        typ_meta.to_ipld(),
+        induct_meta.to_ipld(),
+        rules_meta.to_ipld(),
+      ]),
     }
   }
 
@@ -550,71 +565,96 @@ impl IpldEmbed for ConstMeta {
         [Integer(t), Integer(0), pos, name, levels, typ] if *t == tag => {
           let pos = Pos::from_ipld(pos)?;
           let name = NameCid::from_ipld(name)?;
-          let levels = IpldEmbed::from_ipld(levels)?;
-          let typ = ExprMetaCid::from_ipld(typ)?;
-          Ok(ConstMeta::Quotient { pos, name, levels, typ })
+          let levels_meta = IpldEmbed::from_ipld(levels)?;
+          let typ_meta = ExprMetaCid::from_ipld(typ)?;
+          Ok(ConstMeta::Quotient { pos, name, levels_meta, typ_meta })
         }
         [Integer(t), Integer(1), pos, name, levels, typ] if *t == tag => {
           let pos = Pos::from_ipld(pos)?;
           let name = NameCid::from_ipld(name)?;
-          let levels = IpldEmbed::from_ipld(levels)?;
-          let typ = ExprMetaCid::from_ipld(typ)?;
-          Ok(ConstMeta::Axiom { pos, name, levels, typ })
+          let levels_meta = IpldEmbed::from_ipld(levels)?;
+          let typ_meta = ExprMetaCid::from_ipld(typ)?;
+          Ok(ConstMeta::Axiom { pos, name, levels_meta, typ_meta })
         }
         [Integer(t), Integer(2), pos, name, levels, typ, val] if *t == tag => {
           let pos = Pos::from_ipld(pos)?;
           let name = NameCid::from_ipld(name)?;
-          let levels = IpldEmbed::from_ipld(levels)?;
-          let typ = ExprMetaCid::from_ipld(typ)?;
-          let val = ExprMetaCid::from_ipld(val)?;
-          Ok(ConstMeta::Definition { pos, name, levels, typ, val })
+          let levels_meta = IpldEmbed::from_ipld(levels)?;
+          let typ_meta = ExprMetaCid::from_ipld(typ)?;
+          let val_meta = ExprMetaCid::from_ipld(val)?;
+          Ok(ConstMeta::Definition {
+            pos,
+            name,
+            levels_meta,
+            typ_meta,
+            val_meta,
+          })
         }
         [Integer(t), Integer(3), pos, name, levels, typ, val] if *t == tag => {
           let pos = Pos::from_ipld(pos)?;
           let name = NameCid::from_ipld(name)?;
-          let levels = IpldEmbed::from_ipld(levels)?;
-          let typ = ExprMetaCid::from_ipld(typ)?;
-          let val = ExprMetaCid::from_ipld(val)?;
-          Ok(ConstMeta::Theorem { pos, name, levels, typ, val })
+          let levels_meta = IpldEmbed::from_ipld(levels)?;
+          let typ_meta = ExprMetaCid::from_ipld(typ)?;
+          let val_meta = ExprMetaCid::from_ipld(val)?;
+          Ok(ConstMeta::Theorem { pos, name, levels_meta, typ_meta, val_meta })
         }
         [Integer(t), Integer(4), pos, name, levels, typ, val] if *t == tag => {
           let pos = Pos::from_ipld(pos)?;
           let name = NameCid::from_ipld(name)?;
-          let levels = IpldEmbed::from_ipld(levels)?;
-          let typ = ExprMetaCid::from_ipld(typ)?;
-          let val = ExprMetaCid::from_ipld(val)?;
-          Ok(ConstMeta::Opaque { pos, name, levels, typ, val })
+          let levels_meta = IpldEmbed::from_ipld(levels)?;
+          let typ_meta = ExprMetaCid::from_ipld(typ)?;
+          let val_meta = ExprMetaCid::from_ipld(val)?;
+          Ok(ConstMeta::Opaque { pos, name, levels_meta, typ_meta, val_meta })
         }
         [Integer(t), Integer(5), pos, name, levels, typ, ctors]
           if *t == tag =>
         {
           let pos = Pos::from_ipld(pos)?;
           let name = NameCid::from_ipld(name)?;
-          let levels = IpldEmbed::from_ipld(levels)?;
-          let typ = ExprMetaCid::from_ipld(typ)?;
-          let ctors = IpldEmbed::from_ipld(ctors)?;
-          Ok(ConstMeta::Inductive { pos, name, levels, typ, ctors })
+          let levels_meta = IpldEmbed::from_ipld(levels)?;
+          let typ_meta = ExprMetaCid::from_ipld(typ)?;
+          let intros_meta = IpldEmbed::from_ipld(ctors)?;
+          Ok(ConstMeta::Inductive {
+            pos,
+            name,
+            levels_meta,
+            typ_meta,
+            intros_meta,
+          })
         }
         [Integer(t), Integer(6), pos, name, levels, typ, induct]
           if *t == tag =>
         {
           let pos = Pos::from_ipld(pos)?;
           let name = NameCid::from_ipld(name)?;
-          let levels = IpldEmbed::from_ipld(levels)?;
-          let typ = ExprMetaCid::from_ipld(typ)?;
-          let induct = ConstMetaCid::from_ipld(induct)?;
-          Ok(ConstMeta::Constructor { pos, name, levels, typ, induct })
+          let levels_meta = IpldEmbed::from_ipld(levels)?;
+          let typ_meta = ExprMetaCid::from_ipld(typ)?;
+          let induct_meta = ConstMetaCid::from_ipld(induct)?;
+          Ok(ConstMeta::Constructor {
+            pos,
+            name,
+            levels_meta,
+            typ_meta,
+            induct_meta,
+          })
         }
         [Integer(t), Integer(7), pos, name, levels, typ, induct, rules]
           if *t == tag =>
         {
           let pos = Pos::from_ipld(pos)?;
           let name = NameCid::from_ipld(name)?;
-          let levels = IpldEmbed::from_ipld(levels)?;
-          let typ = ExprMetaCid::from_ipld(typ)?;
-          let induct = ConstMetaCid::from_ipld(induct)?;
-          let rules = IpldEmbed::from_ipld(rules)?;
-          Ok(ConstMeta::Recursor { pos, name, levels, typ, induct, rules })
+          let levels_meta = IpldEmbed::from_ipld(levels)?;
+          let typ_meta = ExprMetaCid::from_ipld(typ)?;
+          let induct_meta = ConstMetaCid::from_ipld(induct)?;
+          let rules_meta = IpldEmbed::from_ipld(rules)?;
+          Ok(ConstMeta::Recursor {
+            pos,
+            name,
+            levels_meta,
+            typ_meta,
+            induct_meta,
+            rules_meta,
+          })
         }
         xs => Err(IpldError::expected("ConstMeta", &List(xs.to_owned()))),
       },

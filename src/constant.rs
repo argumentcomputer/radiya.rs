@@ -30,6 +30,7 @@ pub struct Intro {
   pub typ: Expression,
 }
 
+#[derive(PartialEq, Debug, Clone)]
 pub enum Constant {
   Quotient {
     pos: Pos,
@@ -73,7 +74,7 @@ pub enum Constant {
     name: Name,
     level_params: Vector<Name>,
     typ: Expression,
-    ctors: Vector<Intro>,
+    intros: Vector<Intro>,
     params: usize,
     indices: usize,
     is_unsafe: bool,
