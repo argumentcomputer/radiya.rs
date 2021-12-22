@@ -1,11 +1,16 @@
 use alloc::string::String;
 use sp_cid::Cid;
 use sp_ipld::Ipld;
-use sp_multihash::Multihash;
 
 use crate::content::{
-  constant::Const,
-  expr::Expr,
+  constant::{
+    Const,
+    ConstMeta,
+  },
+  expr::{
+    Expr,
+    ExprMeta,
+  },
   name::Name,
   univ::{
     Univ,
@@ -97,7 +102,7 @@ impl IpldEmbed for UnivCid {
 }
 impl UnivMetaCid {
   pub fn new(univ: &UnivMeta) -> Self {
-    UnivMetaCid(cid(UNIV, &univ.to_ipld()))
+    UnivMetaCid(cid(UNIV_META, &univ.to_ipld()))
   }
 }
 
@@ -126,6 +131,22 @@ impl IpldEmbed for ExprCid {
     }
   }
 }
+impl ExprMetaCid {
+  pub fn new(expr: &ExprMeta) -> Self {
+    ExprMetaCid(cid(EXPR_META, &expr.to_ipld()))
+  }
+}
+
+impl IpldEmbed for ExprMetaCid {
+  fn to_ipld(&self) -> Ipld { Ipld::Link(self.0) }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    match ipld {
+      Ipld::Link(cid) if cid.codec() == EXPR_META => Ok(ExprMetaCid(*cid)),
+      x => Err(IpldError::Expected(String::from("ExprMetaCid"), x.clone())),
+    }
+  }
+}
 
 impl ConstCid {
   pub fn new(constant: &Const) -> Self {
@@ -140,6 +161,23 @@ impl IpldEmbed for ConstCid {
     match ipld {
       Ipld::Link(cid) if cid.codec() == CONST => Ok(ConstCid(*cid)),
       x => Err(IpldError::Expected(String::from("ConstCid"), x.clone())),
+    }
+  }
+}
+
+impl ConstMetaCid {
+  pub fn new(expr: &ConstMeta) -> Self {
+    ConstMetaCid(cid(CONST_META, &expr.to_ipld()))
+  }
+}
+
+impl IpldEmbed for ConstMetaCid {
+  fn to_ipld(&self) -> Ipld { Ipld::Link(self.0) }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    match ipld {
+      Ipld::Link(cid) if cid.codec() == CONST_META => Ok(ConstMetaCid(*cid)),
+      x => Err(IpldError::Expected(String::from("ConstMetaCid"), x.clone())),
     }
   }
 }

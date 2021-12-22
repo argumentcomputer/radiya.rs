@@ -12,12 +12,18 @@ use crate::content::cid::{
 };
 
 use crate::content::{
-  constant::Const,
+  constant::{
+    Const,
+    ConstMeta,
+  },
   embed::{
     EmbedError,
     EmbedError::*,
   },
-  expr::Expr,
+  expr::{
+    Expr,
+    ExprMeta,
+  },
   name::Name,
   univ::{
     Univ,
@@ -33,9 +39,9 @@ pub struct Cache {
   pub univ: BTreeMap<UnivCid, Univ>,
   pub univ_meta: BTreeMap<UnivMetaCid, UnivMeta>,
   pub expr: BTreeMap<ExprCid, Expr>,
-  // pub expr_meta: BTreeMap<ExprMetaCid, ExprMeta>,
+  pub expr_meta: BTreeMap<ExprMetaCid, ExprMeta>,
   pub constant: BTreeMap<ConstCid, Const>,
-  // pub cons_meta: BTreeMap<ConstMetaCid, ConstMeta>,
+  pub const_meta: BTreeMap<ConstMetaCid, ConstMeta>,
 }
 
 impl Cache {
@@ -46,7 +52,9 @@ impl Cache {
       univ: BTreeMap::new(),
       univ_meta: BTreeMap::new(),
       expr: BTreeMap::new(),
+      expr_meta: BTreeMap::new(),
       constant: BTreeMap::new(),
+      const_meta: BTreeMap::new(),
     }
   }
 
@@ -106,6 +114,22 @@ impl Cache {
     self.expr.get(cid).ok_or(CacheGetExpr(*cid))
   }
 
+  pub fn put_expr_meta(
+    &mut self,
+    expr_meta: ExprMeta,
+  ) -> Result<ExprMetaCid, EmbedError> {
+    let cid = ExprMetaCid::new(&expr_meta);
+    self.expr_meta.insert(cid, expr_meta);
+    Ok(cid)
+  }
+
+  pub fn get_expr_meta(
+    &mut self,
+    cid: &ExprMetaCid,
+  ) -> Result<&ExprMeta, EmbedError> {
+    self.expr_meta.get(cid).ok_or(CacheGetExprMeta(*cid))
+  }
+
   pub fn put_constant(&mut self, lit: Const) -> Result<ConstCid, EmbedError> {
     let cid = ConstCid::new(&lit);
     self.constant.insert(cid, lit).map(|_| cid);
@@ -114,5 +138,21 @@ impl Cache {
 
   pub fn get_constant(&mut self, cid: &ConstCid) -> Result<&Const, EmbedError> {
     self.constant.get(cid).ok_or(CacheGetConst(*cid))
+  }
+
+  pub fn put_const_meta(
+    &mut self,
+    lit: ConstMeta,
+  ) -> Result<ConstMetaCid, EmbedError> {
+    let cid = ConstMetaCid::new(&lit);
+    self.const_meta.insert(cid, lit).map(|_| cid);
+    Ok(cid)
+  }
+
+  pub fn get_const_meta(
+    &mut self,
+    cid: &ConstMetaCid,
+  ) -> Result<&ConstMeta, EmbedError> {
+    self.const_meta.get(cid).ok_or(CacheGetConstMeta(*cid))
   }
 }

@@ -22,10 +22,15 @@ use crate::{
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Environment {
+pub struct Env {
   pub constants: BTreeMap<NameCid, (ConstCid, ConstMetaCid)>,
 }
-impl IpldEmbed for Environment {
+
+impl Env {
+  pub fn new() -> Self { Env { constants: BTreeMap::new() } }
+}
+
+impl IpldEmbed for Env {
   fn to_ipld(&self) -> Ipld { todo!() }
 
   fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> { todo!() }

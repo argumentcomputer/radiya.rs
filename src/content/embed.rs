@@ -5,13 +5,17 @@ use crate::{
     cid::{
       ConstCid,
       ExprCid,
+      ExprMetaCid,
       LitCid,
       NameCid,
       UnivCid,
       UnivMetaCid,
     },
-    constant::Const,
-    environment::Environment,
+    constant::{
+      Const,
+      ConstMeta,
+    },
+    environment::Env,
     expr::{
       Expr,
       ExprMeta,
@@ -33,24 +37,28 @@ use crate::{
   universe::Universe,
 };
 
-use num_bigint::BigUint;
 use sp_std::{
   boxed::Box,
   convert::TryInto,
   vec::Vec,
 };
 
+use super::cid::ConstMetaCid;
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum EmbedError {
   Univ(Univ, UnivMeta),
   Expr(Expr, ExprMeta),
+  Const(Const, ConstMeta),
   IdxOverflow,
   CacheGetLit(LitCid),
   CacheGetName(NameCid),
   CacheGetUniv(UnivCid),
   CacheGetUnivMeta(UnivMetaCid),
   CacheGetExpr(ExprCid),
+  CacheGetExprMeta(ExprMetaCid),
   CacheGetConst(ConstCid),
+  CacheGetConstMeta(ConstMetaCid),
   UndefinedConst(name::Name, NameCid),
   FreeVar(Pos, usize, name::Name, BinderInfo),
 }
@@ -96,6 +104,7 @@ impl name::Name {
 }
 
 impl Universe {
+  // TODO: refactor to iterative version to avoid stack overflows
   pub fn embed(
     &self,
     cache: &mut Cache,
@@ -135,6 +144,7 @@ impl Universe {
     }
   }
 
+  // TODO: refactor to iterative version to avoid stack overflows
   pub fn unembed(
     cache: &mut Cache,
     univ: UnivCid,
@@ -168,242 +178,493 @@ impl Universe {
   }
 }
 
-// impl Literal {
-//  pub fn embed(&self, cache: &mut Cache) -> Result<LiteralCid, EmbedError> {
-//    cache.put_literal(self.clone())
-//  }
-//}
-// impl Expression {
-//  pub fn embed(
-//    &self,
-//    cache: &mut Cache,
-//    env: &Environment,
-//  ) -> Result<(MetaCid, ExprCid), EmbedError> {
-//    match self {
-//      Self::BVar(pos, idx) => {
-//        let meta = cache.put_meta(Metadata::leaf(*pos))?;
-//        let expr = cache.put_expr(Expr::Var { idx: (*idx).into() })?;
-//        Ok((meta, expr))
-//      }
-//      Self::FVar(pos, idx, name, bind, _) => {
-//        Err(EmbedError::FreeVar(*pos, *idx, name.clone(), *bind))
-//      }
-//      Self::Sort(pos, univ) => {
-//        let (univ_meta, univ) = (*univ).embed(cache)?;
-//        let meta = cache.put_meta(Metadata::branch(*pos, vec![univ_meta]))?;
-//        let expr = cache.put_expr(Expr::Sort { univ })?;
-//        Ok((meta, expr))
-//      }
-//      Self::Const(pos, name, levels) => {
-//        let name_cid = name.clone().embed(cache)?;
-//        let (const_meta_cid, const_cid) = env
-//          .constants
-//          .get(&name_cid)
-//          .ok_or(EmbedError::UndefinedConst(name.clone(), name_cid))?;
-//        let mut levels_meta = Vec::new();
-//        let mut levels_univ = Vec::new();
-//        for l in levels {
-//          let (l_meta, l_univ) = l.embed(cache)?;
-//          levels_meta.push(l_meta);
-//          levels_univ.push(l_univ);
-//        }
-//        let meta = cache.put_meta(Metadata::refer(
-//          *pos,
-//          name_cid,
-//          *const_meta_cid,
-//          levels_meta,
-//        ))?;
-//        let expr = cache.put_expr(Expr::Const {
-//          constant: *const_cid,
-//          levels: levels_univ.into(),
-//        })?;
-//        Ok((meta, expr))
-//      }
-//      Self::App(pos, fun, arg) => {
-//        let (fun_meta, fun) = fun.embed(cache, env)?;
-//        let (arg_meta, arg) = arg.embed(cache, env)?;
-//        let meta =
-//          cache.put_meta(Metadata::branch(*pos, vec![fun_meta, arg_meta]))?;
-//        let expr = cache.put_expr(Expr::App { fun, arg })?;
-//        Ok((meta, expr))
-//      }
-//      Self::Lam(pos, name, info, typ, bod) => {
-//        let name = name.embed(cache)?;
-//        let (typ_meta, typ) = typ.embed(cache, env)?;
-//        let (bod_meta, bod) = bod.embed(cache, env)?;
-//        let meta = cache
-//          .put_meta(Metadata::name(*pos, name, vec![typ_meta, bod_meta]))?;
-//        let expr = cache.put_expr(Expr::Lam { info: *info, typ, bod })?;
-//        Ok((meta, expr))
-//      }
-//      Self::Pi(pos, name, info, typ, bod) => {
-//        let name = name.embed(cache)?;
-//        let (typ_meta, typ) = typ.embed(cache, env)?;
-//        let (bod_meta, bod) = bod.embed(cache, env)?;
-//        let meta = cache
-//          .put_meta(Metadata::name(*pos, name, vec![typ_meta, bod_meta]))?;
-//        let expr = cache.put_expr(Expr::Pi { info: *info, typ, bod })?;
-//        Ok((meta, expr))
-//      }
-//      Self::Let(pos, name, typ, val, bod) => {
-//        let name = name.embed(cache)?;
-//        let (typ_meta, typ) = typ.embed(cache, env)?;
-//        let (val_meta, val) = val.embed(cache, env)?;
-//        let (bod_meta, bod) = bod.embed(cache, env)?;
-//        let meta = cache.put_meta(Metadata::name(*pos, name, vec![
-//          typ_meta, val_meta, bod_meta,
-//        ]))?;
-//        let expr = cache.put_expr(Expr::Let { typ, val, bod })?;
-//        Ok((meta, expr))
-//      }
-//      Self::Lit(pos, val) => {
-//        let meta = cache.put_meta(Metadata::leaf(*pos))?;
-//        let val = val.embed(cache)?;
-//        let expr = cache.put_expr(Expr::Lit { val })?;
-//        Ok((meta, expr))
-//      }
-//      Self::Fix(pos, bod) => {
-//        let (bod_meta, bod) = bod.embed(cache, env)?;
-//        let meta = cache.put_meta(Metadata::branch(*pos, vec![bod_meta]))?;
-//        let expr = cache.put_expr(Expr::Fix { bod })?;
-//        Ok((meta, expr))
-//      }
-//    }
-//  }
-//}
-// impl Constant {
-//  pub fn embed(
-//    &self,
-//    cache: &mut Cache,
-//    env: &Environment,
-//  ) -> Result<(MetaCid, ConstCid), EmbedError> {
-//    match self {
-//      Self::Quotient { pos, name, level_params, typ, kind } => {
-//        let name = name.embed(cache)?;
-//        let mut ls = Vec::new();
-//        let mut n: usize = 0;
-//        for l in level_params {
-//          let l = l.embed(cache)?;
-//          ls.push(l);
-//          n = n + 1;
-//        }
-//        let (typ_meta, typ) = typ.embed(cache, env)?;
-//        let meta =
-//          cache.put_meta(Metadata::constant(*pos, name, ls, vec![typ_meta]))?;
-//        let cons = cache.put_constant(Const::Quotient {
-//          levels: n.into(),
-//          typ,
-//          kind: *kind,
-//        })?;
-//        Ok((meta, cons))
-//      }
-//      Self::Axiom { pos, name, level_params, typ, is_unsafe } => {
-//        let name = name.embed(cache)?;
-//        let mut ls = Vec::new();
-//        let mut n: usize = 0;
-//        for l in level_params {
-//          let l = l.embed(cache)?;
-//          ls.push(l);
-//          n = n + 1;
-//        }
-//        let (typ_meta, typ) = typ.embed(cache, env)?;
-//        let meta =
-//          cache.put_meta(Metadata::constant(*pos, name, ls, vec![typ_meta]))?;
-//        let cons = cache.put_constant(Const::Axiom {
-//          levels: n.into(),
-//          typ,
-//          is_unsafe: *is_unsafe,
-//        })?;
-//        Ok((meta, cons))
-//      }
-//      Self::Theorem { pos, name, level_params, typ, val } => {
-//        let name = name.embed(cache)?;
-//        let mut ls = Vec::new();
-//        let mut n: usize = 0;
-//        for l in level_params {
-//          let l = l.embed(cache)?;
-//          ls.push(l);
-//          n = n + 1;
-//        }
-//        let (typ_meta, typ) = typ.embed(cache, env)?;
-//        let (val_meta, val) = val.embed(cache, env)?;
-//        let meta = cache.put_meta(Metadata::constant(*pos, name, ls, vec![
-//          typ_meta, val_meta,
-//        ]))?;
-//        let cons =
-//          cache.put_constant(Const::Theorem { levels: n.into(), typ, val })?;
-//        Ok((meta, cons))
-//      }
-//      Self::Opaque { pos, name, level_params, typ, val, is_unsafe } => {
-//        let name = name.embed(cache)?;
-//        let mut ls = Vec::new();
-//        let mut n: usize = 0;
-//        for l in level_params {
-//          let l = l.embed(cache)?;
-//          ls.push(l);
-//          n = n + 1;
-//        }
-//        let (typ_meta, typ) = typ.embed(cache, env)?;
-//        let (val_meta, val) = val.embed(cache, env)?;
-//        let meta = cache.put_meta(Metadata::constant(*pos, name, ls, vec![
-//          typ_meta, val_meta,
-//        ]))?;
-//        let cons = cache.put_constant(Const::Opaque {
-//          levels: n.into(),
-//          typ,
-//          val,
-//          is_unsafe: *is_unsafe,
-//        })?;
-//        Ok((meta, cons))
-//      }
-//      Self::Definition { pos, name, level_params, typ, val, safety } => {
-//        let name = name.embed(cache)?;
-//        let mut ls = Vec::new();
-//        let mut n: usize = 0;
-//        for l in level_params {
-//          let l = l.embed(cache)?;
-//          ls.push(l);
-//          n = n + 1;
-//        }
-//        let (typ_meta, typ) = typ.embed(cache, env)?;
-//        let (val_meta, val) = val.embed(cache, env)?;
-//        let meta = cache.put_meta(Metadata::constant(*pos, name, ls, vec![
-//          typ_meta, val_meta,
-//        ]))?;
-//        let cons = cache.put_constant(Const::Definition {
-//          levels: n.into(),
-//          typ,
-//          val,
-//          safety: *safety,
-//        })?;
-//        Ok((meta, cons))
-//      }
-//      Self::Inductive {
-//        pos,
-//        name,
-//        level_params,
-//        typ,
-//        ctors,
-//        params,
-//        indices,
-//        is_unsafe,
-//      } => {
-//        let name = name.embed(cache)?;
-//        let mut ls = Vec::new();
-//        let mut n: usize = 0;
-//        for l in level_params {
-//          let l = l.embed(cache)?;
-//          ls.push(l);
-//          n = n + 1;
-//        }
-//        let (typ_meta, typ) = typ.embed(cache, env)?;
-//        todo!()
-//      }
-//      _ => todo!(),
-//    }
-//  }
-//}
-//
+impl Literal {
+  pub fn embed(&self, cache: &mut Cache) -> Result<LitCid, EmbedError> {
+    cache.put_literal(self.clone())
+  }
+
+  pub fn unembed(
+    cache: &mut Cache,
+    cid: LitCid,
+  ) -> Result<Literal, EmbedError> {
+    cache.get_literal(&cid).map(|x| x.clone())
+  }
+}
+
+impl Expression {
+  // TODO: refactor to iterative version to avoid stack overflows
+  pub fn embed(
+    &self,
+    cache: &mut Cache,
+    env: &Env,
+  ) -> Result<(ExprCid, ExprMetaCid), EmbedError> {
+    match self {
+      Self::BVar(pos, idx) => {
+        let expr = cache.put_expr(Expr::Var { idx: (*idx).into() })?;
+        let meta = cache.put_expr_meta(ExprMeta::Var(*pos))?;
+        Ok((expr, meta))
+      }
+      Self::FVar(pos, idx, name, bind, _) => {
+        Err(EmbedError::FreeVar(*pos, *idx, name.clone(), *bind))
+      }
+      Self::Sort(pos, univ) => {
+        let (univ, univ_meta) = (*univ).embed(cache)?;
+        let expr = cache.put_expr(Expr::Sort { univ })?;
+        let meta = cache.put_expr_meta(ExprMeta::Sort(*pos, univ_meta))?;
+        Ok((expr, meta))
+      }
+      Self::Const(pos, name, levels) => {
+        let name_cid = name.clone().embed(cache)?;
+        let (const_cid, const_meta_cid) = env
+          .constants
+          .get(&name_cid)
+          .ok_or(EmbedError::UndefinedConst(name.clone(), name_cid))?;
+        let mut levels_univ = Vec::new();
+        let mut levels_meta = Vec::new();
+        for l in levels {
+          let (l_univ, l_meta) = l.embed(cache)?;
+          levels_univ.push(l_univ);
+          levels_meta.push(l_meta);
+        }
+        let meta = cache.put_expr_meta(ExprMeta::Const(
+          *pos,
+          name_cid,
+          *const_meta_cid,
+          levels_meta,
+        ))?;
+        let expr = cache.put_expr(Expr::Const {
+          constant: *const_cid,
+          levels: levels_univ.into(),
+        })?;
+        Ok((expr, meta))
+      }
+      Self::App(pos, fun, arg) => {
+        let (fun, fun_meta) = fun.embed(cache, env)?;
+        let (arg, arg_meta) = arg.embed(cache, env)?;
+        let expr = cache.put_expr(Expr::App { fun, arg })?;
+        let meta =
+          cache.put_expr_meta(ExprMeta::App(*pos, fun_meta, arg_meta))?;
+        Ok((expr, meta))
+      }
+      Self::Lam(pos, name, info, typ, bod) => {
+        let name = name.embed(cache)?;
+        let (typ, typ_meta) = typ.embed(cache, env)?;
+        let (bod, bod_meta) = bod.embed(cache, env)?;
+        let expr = cache.put_expr(Expr::Lam { info: *info, typ, bod })?;
+        let meta =
+          cache.put_expr_meta(ExprMeta::Lam(*pos, name, typ_meta, bod_meta))?;
+        Ok((expr, meta))
+      }
+      Self::Pi(pos, name, info, typ, bod) => {
+        let name = name.embed(cache)?;
+        let (typ, typ_meta) = typ.embed(cache, env)?;
+        let (bod, bod_meta) = bod.embed(cache, env)?;
+        let expr = cache.put_expr(Expr::Pi { info: *info, typ, bod })?;
+        let meta =
+          cache.put_expr_meta(ExprMeta::Pi(*pos, name, typ_meta, bod_meta))?;
+        Ok((expr, meta))
+      }
+      Self::Let(pos, name, typ, val, bod) => {
+        let name = name.embed(cache)?;
+        let (typ, typ_meta) = typ.embed(cache, env)?;
+        let (val, val_meta) = val.embed(cache, env)?;
+        let (bod, bod_meta) = bod.embed(cache, env)?;
+        let expr = cache.put_expr(Expr::Let { typ, val, bod })?;
+        let meta = cache.put_expr_meta(ExprMeta::Let(
+          *pos, name, typ_meta, val_meta, bod_meta,
+        ))?;
+        Ok((expr, meta))
+      }
+      Self::Lit(pos, val) => {
+        let val = val.embed(cache)?;
+        let meta = cache.put_expr_meta(ExprMeta::Lit(*pos))?;
+        let expr = cache.put_expr(Expr::Lit { val })?;
+        Ok((expr, meta))
+      }
+      Self::Fix(pos, name, bod) => {
+        let name = name.embed(cache)?;
+        let (bod, bod_meta) = bod.embed(cache, env)?;
+        let expr = cache.put_expr(Expr::Fix { bod })?;
+        let meta = cache.put_expr_meta(ExprMeta::Fix(*pos, name, bod_meta))?;
+        Ok((expr, meta))
+      }
+    }
+  }
+
+  // TODO: refactor to iterative version to avoid stack overflows
+  pub fn unembed(
+    cache: &mut Cache,
+    expr: ExprCid,
+    meta: ExprMetaCid,
+  ) -> Result<Self, EmbedError> {
+    let expr = cache.get_expr(&expr)?.clone();
+    let meta = cache.get_expr_meta(&meta)?.clone();
+    match (expr, meta) {
+      (Expr::Var { idx }, ExprMeta::Var(pos)) => {
+        let idx = idx.try_into().map_err(|_| EmbedError::IdxOverflow)?;
+        Ok(Self::BVar(pos, idx))
+      }
+      (Expr::Sort { univ }, ExprMeta::Sort(pos, univ_meta)) => {
+        let univ = Universe::unembed(cache, univ, univ_meta)?;
+        Ok(Self::Sort(pos, Box::new(univ)))
+      }
+      (
+        Expr::Const { constant, levels },
+        ExprMeta::Const(pos, name, constant_meta, levels_meta),
+      ) => {
+        // TODO: check constant is in cache, i.e. reference is defined
+        let name = name::Name::unembed(cache, name)?;
+        let mut ls = Vec::new();
+        for (l, lm) in levels.iter().zip(levels_meta.iter()) {
+          let level = Universe::unembed(cache, *l, *lm)?;
+          ls.push(level)
+        }
+        Ok(Self::Const(pos, name, ls.into()))
+      }
+      (Expr::App { fun, arg }, ExprMeta::App(pos, fun_meta, arg_meta)) => {
+        let fun = Self::unembed(cache, fun, fun_meta)?;
+        let arg = Self::unembed(cache, arg, arg_meta)?;
+        Ok(Self::App(pos, Box::new(fun), Box::new(arg)))
+      }
+      (
+        Expr::Lam { info, typ, bod },
+        ExprMeta::Lam(pos, name, typ_meta, bod_meta),
+      ) => {
+        let name = name::Name::unembed(cache, name)?;
+        let typ = Self::unembed(cache, typ, typ_meta)?;
+        let bod = Self::unembed(cache, bod, bod_meta)?;
+        Ok(Self::Lam(pos, name, info, Box::new(typ), Box::new(bod)))
+      }
+      (
+        Expr::Pi { info, typ, bod },
+        ExprMeta::Pi(pos, name, typ_meta, bod_meta),
+      ) => {
+        let name = name::Name::unembed(cache, name)?;
+        let typ = Self::unembed(cache, typ, typ_meta)?;
+        let bod = Self::unembed(cache, bod, bod_meta)?;
+        Ok(Self::Pi(pos, name, info, Box::new(typ), Box::new(bod)))
+      }
+      (
+        Expr::Let { typ, val, bod },
+        ExprMeta::Let(pos, name, typ_meta, val_meta, bod_meta),
+      ) => {
+        let name = name::Name::unembed(cache, name)?;
+        let typ = Self::unembed(cache, typ, typ_meta)?;
+        let val = Self::unembed(cache, val, val_meta)?;
+        let bod = Self::unembed(cache, bod, bod_meta)?;
+        Ok(Self::Let(pos, name, Box::new(typ), Box::new(val), Box::new(bod)))
+      }
+      (Expr::Lit { val }, ExprMeta::Lit(pos)) => {
+        let val = Literal::unembed(cache, val)?;
+        Ok(Self::Lit(pos, val))
+      }
+      (Expr::Fix { bod }, ExprMeta::Fix(pos, name, bod_meta)) => {
+        let name = name::Name::unembed(cache, name)?;
+        let bod = Self::unembed(cache, bod, bod_meta)?;
+        Ok(Self::Fix(pos, name, Box::new(bod)))
+      }
+      (expr, meta) => Err(EmbedError::Expr(expr, meta)),
+    }
+  }
+}
+impl Constant {
+  pub fn embed(
+    &self,
+    cache: &mut Cache,
+    env: &Env,
+  ) -> Result<(ConstCid, ConstMetaCid), EmbedError> {
+    match self {
+      Self::Quotient { pos, name, level_params, typ, kind } => {
+        let name = name.embed(cache)?;
+        let mut levels = Vec::new();
+        let mut n: usize = 0;
+        for l in level_params {
+          let l = l.embed(cache)?;
+          levels.push(l);
+          n = n + 1;
+        }
+        let (typ, typ_meta) = typ.embed(cache, env)?;
+        let cnst = cache.put_constant(Const::Quotient {
+          levels: n.into(),
+          typ,
+          kind: *kind,
+        })?;
+        let meta = cache.put_const_meta(ConstMeta::Quotient {
+          pos: *pos,
+          name,
+          levels,
+          typ: typ_meta,
+        })?;
+        Ok((cnst, meta))
+      }
+      Self::Axiom { pos, name, level_params, typ, is_unsafe } => {
+        let name = name.embed(cache)?;
+        let mut levels = Vec::new();
+        let mut n: usize = 0;
+        for l in level_params {
+          let l = l.embed(cache)?;
+          levels.push(l);
+          n = n + 1;
+        }
+        let (typ, typ_meta) = typ.embed(cache, env)?;
+        let cnst = cache.put_constant(Const::Axiom {
+          levels: n.into(),
+          typ,
+          is_unsafe: *is_unsafe,
+          uid: name.0,
+        })?;
+        let meta = cache.put_const_meta(ConstMeta::Axiom {
+          pos: *pos,
+          name,
+          levels,
+          typ: typ_meta,
+        })?;
+        Ok((cnst, meta))
+      }
+      Self::Theorem { pos, name, level_params, typ, val } => {
+        let name = name.embed(cache)?;
+        let mut levels = Vec::new();
+        let mut n: usize = 0;
+        for l in level_params {
+          let l = l.embed(cache)?;
+          levels.push(l);
+          n = n + 1;
+        }
+        let (typ, typ_meta) = typ.embed(cache, env)?;
+        let (val, val_meta) = val.embed(cache, env)?;
+        let cnst =
+          cache.put_constant(Const::Theorem { levels: n.into(), typ, val })?;
+        let meta = cache.put_const_meta(ConstMeta::Theorem {
+          pos: *pos,
+          name,
+          levels,
+          typ: typ_meta,
+          val: val_meta,
+        })?;
+        Ok((cnst, meta))
+      }
+      Self::Opaque { pos, name, level_params, typ, val, is_unsafe } => {
+        let name = name.embed(cache)?;
+        let mut levels = Vec::new();
+        let mut n: usize = 0;
+        for l in level_params {
+          let l = l.embed(cache)?;
+          levels.push(l);
+          n = n + 1;
+        }
+        let (typ, typ_meta) = typ.embed(cache, env)?;
+        let (val, val_meta) = val.embed(cache, env)?;
+        let cnst = cache.put_constant(Const::Opaque {
+          levels: n.into(),
+          typ,
+          val,
+          is_unsafe: *is_unsafe,
+          uid: name.0,
+        })?;
+        let meta = cache.put_const_meta(ConstMeta::Opaque {
+          pos: *pos,
+          name,
+          levels,
+          typ: typ_meta,
+          val: val_meta,
+        })?;
+        Ok((cnst, meta))
+      }
+      Self::Definition { pos, name, level_params, typ, val, safety } => {
+        let name = name.embed(cache)?;
+        let mut levels = Vec::new();
+        let mut n: usize = 0;
+        for l in level_params {
+          let l = l.embed(cache)?;
+          levels.push(l);
+          n = n + 1;
+        }
+        let (typ, typ_meta) = typ.embed(cache, env)?;
+        let (val, val_meta) = val.embed(cache, env)?;
+        let cnst = cache.put_constant(Const::Definition {
+          levels: n.into(),
+          typ,
+          val,
+          safety: *safety,
+        })?;
+        let meta = cache.put_const_meta(ConstMeta::Definition {
+          pos: *pos,
+          name,
+          levels,
+          typ: typ_meta,
+          val: val_meta,
+        })?;
+        Ok((cnst, meta))
+      }
+      Self::Inductive {
+        pos,
+        name,
+        level_params,
+        typ,
+        ctors,
+        params,
+        indices,
+        is_unsafe,
+      } => {
+        let name = name.embed(cache)?;
+        let mut levels = Vec::new();
+        let mut n: usize = 0;
+        for l in level_params {
+          let l = l.embed(cache)?;
+          levels.push(l);
+          n = n + 1;
+        }
+        let mut intros = Vec::new();
+        let mut intros_meta = Vec::new();
+        use crate::content::constant::Intro;
+        for i in ctors {
+          let ctor_name = (*i).ctor.embed(cache)?;
+          let (typ, typ_meta) = i.typ.embed(cache, env)?;
+          intros.push(Intro { ctor: ctor_name, typ });
+          intros_meta.push(typ_meta);
+        }
+        let (typ, typ_meta) = typ.embed(cache, env)?;
+        let cnst = cache.put_constant(Const::Inductive {
+          levels: n.into(),
+          typ,
+          params: (*params).into(),
+          indices: (*indices).into(),
+          intros,
+          is_unsafe: *is_unsafe,
+        })?;
+        let meta = cache.put_const_meta(ConstMeta::Inductive {
+          pos: *pos,
+          name,
+          levels,
+          typ: typ_meta,
+          ctors: intros_meta,
+        })?;
+        Ok((cnst, meta))
+      }
+      Self::Constructor {
+        pos,
+        name,
+        level_params,
+        typ,
+        induct,
+        ctor_idx,
+        params,
+        fields,
+        is_unsafe,
+      } => {
+        let name = name.embed(cache)?;
+        let mut levels = Vec::new();
+        let mut n: usize = 0;
+        for l in level_params {
+          let l = l.embed(cache)?;
+          levels.push(l);
+          n = n + 1;
+        }
+        let (typ, typ_meta) = typ.embed(cache, env)?;
+
+        let induct_name = induct.embed(cache)?;
+        let (induct_cid, induct_meta_cid) = env
+          .constants
+          .get(&induct_name)
+          .ok_or(EmbedError::UndefinedConst(induct.clone(), induct_name))?;
+        let cnst = cache.put_constant(Const::Constructor {
+          levels: n.into(),
+          typ,
+          induct: *induct_cid,
+          cidx: (*ctor_idx).into(),
+          params: (*params).into(),
+          fields: (*fields).into(),
+          is_unsafe: *is_unsafe,
+        })?;
+        let meta = cache.put_const_meta(ConstMeta::Constructor {
+          pos: *pos,
+          name,
+          levels,
+          typ: typ_meta,
+          induct: *induct_meta_cid,
+        })?;
+        Ok((cnst, meta))
+      }
+      Self::Recursor {
+        pos,
+        name,
+        level_params,
+        typ,
+        induct,
+        params,
+        indices,
+        motives,
+        minors,
+        rules,
+        k,
+        is_unsafe,
+      } => {
+        let name = name.embed(cache)?;
+        let mut levels = Vec::new();
+        let mut n: usize = 0;
+        for l in level_params {
+          let l = l.embed(cache)?;
+          levels.push(l);
+          n = n + 1;
+        }
+        let (typ, typ_meta) = typ.embed(cache, env)?;
+        let induct_name = induct.embed(cache)?;
+        let (induct_cid, induct_meta_cid) = env
+          .constants
+          .get(&induct_name)
+          .ok_or(EmbedError::UndefinedConst(induct.clone(), induct_name))?;
+        let mut rec_rules = Vec::new();
+        let mut rec_rules_meta = Vec::new();
+        use crate::content::constant::RecursorRule;
+        for r in rules {
+          let ctor_name = (*r).ctor.embed(cache)?;
+          let (rhs, rhs_meta) = r.rhs.embed(cache, env)?;
+          rec_rules.push(RecursorRule {
+            ctor: ctor_name,
+            fields: r.num_fields.into(),
+            rhs,
+          });
+          rec_rules_meta.push(rhs_meta);
+        }
+        let cnst = cache.put_constant(Const::Recursor {
+          levels: n.into(),
+          typ,
+          induct: *induct_cid,
+          params: (*params).into(),
+          indices: (*indices).into(),
+          motives: (*motives).into(),
+          minors: (*minors).into(),
+          rules: rec_rules,
+          k: *k,
+          is_unsafe: *is_unsafe,
+        })?;
+        let meta = cache.put_const_meta(ConstMeta::Recursor {
+          pos: *pos,
+          name,
+          levels,
+          typ: typ_meta,
+          induct: *induct_meta_cid,
+          rules: rec_rules_meta,
+        })?;
+        Ok((cnst, meta))
+      }
+    }
+  }
+
+  // TODO: refactor to iterative version to avoid stack overflows
+  pub fn unembed(
+    cache: &mut Cache,
+    cnst: ConstCid,
+    meta: ConstMetaCid,
+  ) -> Result<Self, EmbedError> {
+    let cnst = cache.get_constant(&cnst)?.clone();
+    let meta = cache.get_const_meta(&meta)?.clone();
+    match (cnst, meta) {
+      _ => todo!(),
+    }
+  }
+}
+
 #[cfg(test)]
 pub mod tests {
 
@@ -422,6 +683,7 @@ pub mod tests {
     let name2 = name::Name::unembed(&mut cache, cid)?;
     Ok(name == name2)
   }
+
   #[quickcheck]
   fn univ_embed(univ: Universe) -> bool {
     println!("{:?}", univ);
@@ -439,5 +701,25 @@ pub mod tests {
     let (cid, meta_cid) = univ.embed(&mut cache)?;
     let univ2 = Universe::unembed(&mut cache, cid, meta_cid)?;
     Ok(univ == univ2)
+  }
+
+  #[quickcheck]
+  fn expr_embed(expr: Expression) -> bool {
+    println!("{:?}", expr);
+    match expr_embed_inner(expr) {
+      Ok(x) => x,
+      Err(x) => {
+        println!("{:?}", x);
+        false
+      }
+    }
+  }
+
+  fn expr_embed_inner(expr: Expression) -> Result<bool, EmbedError> {
+    let env = Env::new();
+    let mut cache = Cache::new();
+    let (cid, meta_cid) = expr.embed(&mut cache, &env)?;
+    let expr2 = Expression::unembed(&mut cache, cid, meta_cid)?;
+    Ok(expr == expr2)
   }
 }

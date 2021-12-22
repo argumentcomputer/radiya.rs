@@ -3,7 +3,6 @@ use crate::{
   name::Name,
   parse::position::Pos,
 };
-use num_bigint::BigUint;
 use sp_im::Vector;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -27,8 +26,8 @@ pub struct RecursorRule {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Intro {
-  ctor: Name,
-  typ: Expression,
+  pub ctor: Name,
+  pub typ: Expression,
 }
 
 pub enum Constant {
@@ -95,6 +94,7 @@ pub enum Constant {
     name: Name,
     level_params: Vector<Name>,
     typ: Expression,
+    induct: Name,
     params: usize,
     indices: usize,
     motives: usize,

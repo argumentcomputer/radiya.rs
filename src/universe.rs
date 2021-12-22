@@ -234,9 +234,9 @@ pub mod tests {
       let gens: Vec<(usize, UniverseCase)> = vec![
         (100, UniverseCase::ZERO),
         (if ctx.len() == 0 { 0 } else { 100 }, UniverseCase::PARAM),
-        (75, UniverseCase::SUCC),
-        (50, UniverseCase::MAX),
-        (50, UniverseCase::IMAX),
+        (50, UniverseCase::SUCC),
+        (25, UniverseCase::MAX),
+        (25, UniverseCase::IMAX),
       ];
       use GenUniverse::*;
       match next_case(g, &gens) {

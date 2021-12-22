@@ -7,7 +7,6 @@ use sp_std::{
   boxed::Box,
   mem::MaybeUninit,
   ptr::NonNull,
-  vec::Vec,
 };
 
 use num_bigint::BigUint;
@@ -134,7 +133,7 @@ pub mod tests {
   pub fn alloc_val<T>(val: T) -> NonNull<T> {
     NonNull::new(Box::leak(Box::new(val))).unwrap()
   }
-  pub fn arbitrary_term(
+  pub fn arbitrary_expression(
     g: &mut Gen,
     // defs: Defs,
     // uni_ctx: Vector<Name>,
@@ -148,11 +147,12 @@ pub mod tests {
       let gens: Vec<(usize, ExpressionCase)> = vec![
         (if ctx.len() == 0 { 0 } else { 100 }, ExpressionCase::BVAR),
         (100, ExpressionCase::SORT),
+        // TODO: correct CONST generation
         //(100, ExpressionCase::CONST),
-        (90usize.saturating_sub(depth), ExpressionCase::LAM),
-        (80usize.saturating_sub(2 * depth), ExpressionCase::APP),
-        (80usize.saturating_sub(2 * depth), ExpressionCase::PI),
-        (30usize.saturating_sub(3 * depth), ExpressionCase::LET),
+        (40usize.saturating_sub(depth), ExpressionCase::LAM),
+        (40usize.saturating_sub(2 * depth), ExpressionCase::APP),
+        (40usize.saturating_sub(2 * depth), ExpressionCase::PI),
+        (20usize.saturating_sub(3 * depth), ExpressionCase::LET),
         (100, ExpressionCase::LIT),
       ];
       use GenExpression::*;
@@ -251,5 +251,8 @@ pub mod tests {
       let term = term.assume_init();
       mem::transmute::<GenExpression, Expression>(Box::into_inner(term))
     }
+  }
+  impl Arbitrary for Expression {
+    fn arbitrary(g: &mut Gen) -> Self { arbitrary_expression(g, vec![].into()) }
   }
 }

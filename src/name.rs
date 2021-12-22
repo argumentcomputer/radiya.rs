@@ -1,8 +1,4 @@
 use num_bigint::BigUint;
-use num_traits::{
-  One,
-  Zero,
-};
 use sp_im::Vector;
 use sp_std::fmt;
 

@@ -10,6 +10,7 @@ use crate::{
       UnivCid,
       UnivMetaCid,
       EXPR,
+      EXPR_META,
       LITERAL,
     },
     ipld::{
@@ -39,7 +40,7 @@ use sp_std::vec::Vec;
 pub enum Expr {
   Var { idx: BigUint },
   Sort { univ: UnivCid },
-  Const { constant: ConstCid, levels: Vector<UnivCid> },
+  Const { constant: ConstCid, levels: Vec<UnivCid> },
   App { fun: ExprCid, arg: ExprCid },
   Lam { info: BinderInfo, typ: ExprCid, bod: ExprCid },
   Pi { info: BinderInfo, typ: ExprCid, bod: ExprCid },
@@ -50,7 +51,7 @@ pub enum Expr {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExprMeta {
-  Var(Pos, NameCid),
+  Var(Pos),
   Sort(Pos, UnivMetaCid),
   Const(Pos, NameCid, ConstMetaCid, Vec<UnivMetaCid>),
   App(Pos, ExprMetaCid, ExprMetaCid),
@@ -111,15 +112,15 @@ impl IpldEmbed for Literal {
         [Integer(t), Integer(1), String(s)] if *t == tag => {
           Ok(Literal::Str(s.to_owned()))
         }
-        xs => Err(IpldError::expected("Expression", &List(xs.to_owned()))),
+        xs => Err(IpldError::expected("Expr", &List(xs.to_owned()))),
       },
-      x => Err(IpldError::expected("Expression", x)),
+      x => Err(IpldError::expected("Expr", x)),
     }
   }
 }
 
-impl Expr {
-  pub fn to_ipld(&self) -> Ipld {
+impl IpldEmbed for Expr {
+  fn to_ipld(&self) -> Ipld {
     match self {
       Self::Var { idx } => Ipld::List(vec![
         Ipld::Integer(EXPR.into()),
@@ -131,18 +132,12 @@ impl Expr {
         Ipld::Integer(1),
         univ.to_ipld(),
       ]),
-      Self::Const { constant, levels } => {
-        let mut vec = Vec::new();
-        for level in levels {
-          vec.push(Ipld::Link(level.0));
-        }
-        Ipld::List(vec![
-          Ipld::Integer(EXPR.into()),
-          Ipld::Integer(2),
-          constant.to_ipld(),
-          Ipld::List(vec),
-        ])
-      }
+      Self::Const { constant, levels } => Ipld::List(vec![
+        Ipld::Integer(EXPR.into()),
+        Ipld::Integer(2),
+        constant.to_ipld(),
+        levels.to_ipld(),
+      ]),
       Self::App { fun, arg } => Ipld::List(vec![
         Ipld::Integer(EXPR.into()),
         Ipld::Integer(3),
@@ -183,7 +178,7 @@ impl Expr {
     }
   }
 
-  pub fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
     use Ipld::*;
     let tag: i128 = EXPR.into();
     match ipld {
@@ -196,14 +191,10 @@ impl Expr {
           let univ = UnivCid::from_ipld(univ)?;
           Ok(Expr::Sort { univ })
         }
-        [Integer(t), Integer(2), con, List(ls)] if *t == tag => {
-          let constant = ConstCid::from_ipld(con)?;
-          let mut levels = Vec::new();
-          for l in ls {
-            let level = UnivCid::from_ipld(l)?;
-            levels.push(level);
-          }
-          Ok(Expr::Const { constant, levels: levels.into() })
+        [Integer(t), Integer(2), constant, levels] if *t == tag => {
+          let constant = ConstCid::from_ipld(constant)?;
+          let levels = IpldEmbed::from_ipld(levels)?;
+          Ok(Expr::Const { constant, levels })
         }
         [Integer(t), Integer(3), fun, arg] if *t == tag => {
           let fun = ExprCid::from_ipld(fun)?;
@@ -242,6 +233,148 @@ impl Expr {
     }
   }
 }
+impl IpldEmbed for ExprMeta {
+  fn to_ipld(&self) -> Ipld {
+    match self {
+      Self::Var(pos) => Ipld::List(vec![
+        Ipld::Integer(EXPR_META.into()),
+        Ipld::Integer(0),
+        pos.to_ipld(),
+      ]),
+      Self::Sort(pos, univ_meta) => Ipld::List(vec![
+        Ipld::Integer(EXPR_META.into()),
+        Ipld::Integer(1),
+        pos.to_ipld(),
+        univ_meta.to_ipld(),
+      ]),
+      Self::Const(pos, name, constant_meta, levels_meta) => Ipld::List(vec![
+        Ipld::Integer(EXPR_META.into()),
+        Ipld::Integer(2),
+        pos.to_ipld(),
+        name.to_ipld(),
+        constant_meta.to_ipld(),
+        levels_meta.to_ipld(),
+      ]),
+      Self::App(pos, fun_meta, arg_meta) => Ipld::List(vec![
+        Ipld::Integer(EXPR_META.into()),
+        Ipld::Integer(3),
+        pos.to_ipld(),
+        fun_meta.to_ipld(),
+        arg_meta.to_ipld(),
+      ]),
+      Self::Lam(pos, name, typ_meta, bod_meta) => Ipld::List(vec![
+        Ipld::Integer(EXPR_META.into()),
+        Ipld::Integer(4),
+        pos.to_ipld(),
+        name.to_ipld(),
+        typ_meta.to_ipld(),
+        bod_meta.to_ipld(),
+      ]),
+      Self::Pi(pos, name, typ_meta, bod_meta) => Ipld::List(vec![
+        Ipld::Integer(EXPR_META.into()),
+        Ipld::Integer(5),
+        pos.to_ipld(),
+        name.to_ipld(),
+        typ_meta.to_ipld(),
+        bod_meta.to_ipld(),
+      ]),
+      Self::Let(pos, name, typ_meta, val_meta, bod_meta) => Ipld::List(vec![
+        Ipld::Integer(EXPR_META.into()),
+        Ipld::Integer(6),
+        pos.to_ipld(),
+        name.to_ipld(),
+        typ_meta.to_ipld(),
+        val_meta.to_ipld(),
+        bod_meta.to_ipld(),
+      ]),
+      Self::Lit(pos) => Ipld::List(vec![
+        Ipld::Integer(EXPR_META.into()),
+        Ipld::Integer(7),
+        pos.to_ipld(),
+      ]),
+      Self::Fix(pos, name, bod_meta) => Ipld::List(vec![
+        Ipld::Integer(EXPR_META.into()),
+        Ipld::Integer(8),
+        pos.to_ipld(),
+        name.to_ipld(),
+        bod_meta.to_ipld(),
+      ]),
+    }
+  }
+
+  fn from_ipld(ipld: &Ipld) -> Result<Self, IpldError> {
+    use Ipld::*;
+    let tag: i128 = EXPR_META.into();
+    match ipld {
+      List(xs) => match xs.as_slice() {
+        [Integer(t), Integer(0), pos] if *t == tag => {
+          let pos = IpldEmbed::from_ipld(pos)?;
+          Ok(ExprMeta::Var(pos))
+        }
+        [Integer(t), Integer(1), pos, univ_meta] if *t == tag => {
+          let pos = IpldEmbed::from_ipld(pos)?;
+          let univ_meta = UnivMetaCid::from_ipld(univ_meta)?;
+          Ok(ExprMeta::Sort(pos, univ_meta))
+        }
+        [Integer(t), Integer(2), pos, name, constant_meta, levels_meta]
+          if *t == tag =>
+        {
+          let pos = IpldEmbed::from_ipld(pos)?;
+          let name = IpldEmbed::from_ipld(name)?;
+          let constant_meta = ConstMetaCid::from_ipld(constant_meta)?;
+          let levels_meta = IpldEmbed::from_ipld(levels_meta)?;
+          Ok(ExprMeta::Const(pos, name, constant_meta, levels_meta))
+        }
+        [Integer(t), Integer(3), pos, fun_meta, arg_meta] if *t == tag => {
+          let pos = IpldEmbed::from_ipld(pos)?;
+          let fun_meta = ExprMetaCid::from_ipld(fun_meta)?;
+          let arg_meta = ExprMetaCid::from_ipld(arg_meta)?;
+          Ok(ExprMeta::App(pos, fun_meta, arg_meta))
+        }
+        [Integer(t), Integer(4), pos, name, typ_meta, bod_meta]
+          if *t == tag =>
+        {
+          let pos = IpldEmbed::from_ipld(pos)?;
+          let name = IpldEmbed::from_ipld(name)?;
+          let typ_meta = ExprMetaCid::from_ipld(typ_meta)?;
+          let bod_meta = ExprMetaCid::from_ipld(bod_meta)?;
+          Ok(ExprMeta::Lam(pos, name, typ_meta, bod_meta))
+        }
+        [Integer(t), Integer(5), pos, name, typ_meta, bod_meta]
+          if *t == tag =>
+        {
+          let pos = IpldEmbed::from_ipld(pos)?;
+          let name = IpldEmbed::from_ipld(name)?;
+          let typ_meta = ExprMetaCid::from_ipld(typ_meta)?;
+          let bod_meta = ExprMetaCid::from_ipld(bod_meta)?;
+          Ok(ExprMeta::Pi(pos, name, typ_meta, bod_meta))
+        }
+        [Integer(t), Integer(6), pos, name, typ_meta, val_meta, bod_meta]
+          if *t == tag =>
+        {
+          let pos = IpldEmbed::from_ipld(pos)?;
+          let name = IpldEmbed::from_ipld(name)?;
+          let typ_meta = ExprMetaCid::from_ipld(typ_meta)?;
+          let val_meta = ExprMetaCid::from_ipld(val_meta)?;
+          let bod_meta = ExprMetaCid::from_ipld(bod_meta)?;
+          Ok(ExprMeta::Let(pos, name, typ_meta, val_meta, bod_meta))
+        }
+        [Integer(t), Integer(7), pos] if *t == tag => {
+          let pos = IpldEmbed::from_ipld(pos)?;
+          Ok(ExprMeta::Lit(pos))
+        }
+        [Integer(t), Integer(8), pos, name, bod_meta] if *t == tag => {
+          let pos = IpldEmbed::from_ipld(pos)?;
+          let name = IpldEmbed::from_ipld(name)?;
+          let bod_meta = ExprMetaCid::from_ipld(bod_meta)?;
+          Ok(ExprMeta::Fix(pos, name, bod_meta))
+        }
+        xs => Err(IpldError::expected("ExprMeta", &List(xs.to_owned()))),
+      },
+      xs => Err(IpldError::expected("ExprMeta", xs)),
+    }
+  }
+}
 
 #[cfg(test)]
 pub mod tests {
@@ -270,10 +403,7 @@ pub mod tests {
             for _ in 0..num {
               vec.push(Arbitrary::arbitrary(g));
             }
-            Expr::Const {
-              constant: Arbitrary::arbitrary(g),
-              levels: Vector::from(vec),
-            }
+            Expr::Const { constant: Arbitrary::arbitrary(g), levels: vec }
           }),
         ),
         (
@@ -307,6 +437,7 @@ pub mod tests {
             bod: Arbitrary::arbitrary(g),
           }),
         ),
+        (1, Box::new(|g| Self::Fix { bod: Arbitrary::arbitrary(g) })),
       ];
       frequency(g, input)
     }
@@ -315,6 +446,98 @@ pub mod tests {
   #[quickcheck]
   fn expr_ipld(x: Expr) -> bool {
     match Expr::from_ipld(&x.to_ipld()) {
+      Ok(y) => x == y,
+      _ => false,
+    }
+  }
+
+  impl Arbitrary for ExprMeta {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Self>)> = vec![
+        (1, Box::new(|g| Self::Var(Arbitrary::arbitrary(g)))),
+        (
+          1,
+          Box::new(|g| {
+            Self::Sort(Arbitrary::arbitrary(g), Arbitrary::arbitrary(g))
+          }),
+        ),
+        (
+          1,
+          Box::new(|g| {
+            let mut vec = Vec::new();
+            let num = gen_range(g, 0..6);
+            for _ in 0..num {
+              vec.push(Arbitrary::arbitrary(g));
+            }
+            Self::Const(
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+              vec,
+            )
+          }),
+        ),
+        (
+          1,
+          Box::new(|g| {
+            Self::App(
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+            )
+          }),
+        ),
+        (
+          1,
+          Box::new(|g| {
+            Self::Lam(
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+            )
+          }),
+        ),
+        (
+          1,
+          Box::new(|g| {
+            Self::Pi(
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+            )
+          }),
+        ),
+        (
+          1,
+          Box::new(|g| {
+            Self::Let(
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+            )
+          }),
+        ),
+        (
+          1,
+          Box::new(|g| {
+            Self::Fix(
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+              Arbitrary::arbitrary(g),
+            )
+          }),
+        ),
+      ];
+      frequency(g, input)
+    }
+  }
+  #[quickcheck]
+  fn expr_meta_ipld(x: ExprMeta) -> bool {
+    match ExprMeta::from_ipld(&x.to_ipld()) {
       Ok(y) => x == y,
       _ => false,
     }
