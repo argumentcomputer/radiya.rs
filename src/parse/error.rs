@@ -1,14 +1,6 @@
-use crate::{
-  export::{
-    EIdx,
-    NIdx,
-    UIdx,
-  },
-  name::Name,
-  parse::{
-    base,
-    span::Span,
-  },
+use crate::parse::{
+  base,
+  span::Span,
 };
 
 use nom::{
@@ -27,31 +19,25 @@ use sp_std::{
   vec::Vec,
 };
 
-use sp_im::vector::Vector;
-
 use alloc::string::String;
+
+use sp_im::conslist::ConsList;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseErrorKind {
-  // UndefinedReference(Name, Vector<Name>),
-  MultibaseError(multibase::Error),
-  InvalidBaseEncoding(base::LitBase),
-  UnknownBaseCode,
-  UndefinedNIdx(NIdx),
-  UndefinedEIdx(EIdx),
-  UndefinedUIdx(UIdx),
-  RedefinedNIdx(NIdx),
-  RedefinedEIdx(EIdx),
-  RedefinedUIdx(UIdx),
-  // ExpectedSingleChar(Vec<char>),
-  // InvalidBase16EscapeSequence(String),
-  // CidError,
+  UndefinedReference(String, ConsList<String>),
+  TopLevelRedefinition(String),
+  ExpectedSingleChar(Vec<char>),
+  CidError,
   ParseIntErr(ParseIntError),
-  // ReservedKeyword(String),
-  // NumericSyntax(String),
-  // ReservedSyntax(String),
-  // TypeDefConstructorMustReturnItsType,
-  // InvalidSymbol(String),
+  ReservedKeyword(String),
+  NumericSyntax(String),
+  ReservedSyntax(String),
+  UnknownOp(String),
+  InvalidSymbol(String),
+  UnknownBaseCode,
+  InvalidBaseEncoding(base::LitBase),
+  MultibaseError(multibase::Error),
   Nom(ErrorKind),
 }
 
@@ -60,6 +46,13 @@ impl<'a> fmt::Display for ParseErrorKind {
     match self {
       // Self::UndefinedReference(name, _) => {
       //  write!(f, "Undefined reference {}", name)
+      //}
+      // Self::TopLevelRedefinition(name) => {
+      //  write!(
+      //    f,
+      //    "Overlapping definition names, \"{}\" already defined or imported",
+      //    name
+      //  )
       //}
       // Self::ExpectedSingleChar(chrs) => {
       //  write!(
@@ -91,6 +84,9 @@ impl<'a> fmt::Display for ParseErrorKind {
       // \     whitespace or control character.",
       //    name
       //  )
+      //}
+      // Self::UnknownNatOp(x) => {
+      //  write!(f, "Unknown primitive Nat operation #Nat.{}", x)
       //}
       _ => write!(f, "internal parser error"),
     }

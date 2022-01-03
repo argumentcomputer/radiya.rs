@@ -1,3 +1,8 @@
+use sp_std::{
+  fmt,
+  fmt::Display,
+};
+
 use crate::content::{
   cid::{
     NameCid,
@@ -23,6 +28,28 @@ pub enum Univ {
   Max { lhs: UnivCid, rhs: UnivCid },
   IMax { lhs: UnivCid, rhs: UnivCid },
   Param { idx: BigUint },
+}
+
+impl Display for Univ {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Zero => {
+        write!(f, "#Zero")
+      }
+      Self::Succ { pred } => {
+        write!(f, "#Succ {}", pred)
+      }
+      Self::Max { lhs, rhs } => {
+        write!(f, "#Max {} {}", lhs, rhs)
+      }
+      Self::IMax { lhs, rhs } => {
+        write!(f, "#IMax {} {}", lhs, rhs)
+      }
+      Self::Param { idx } => {
+        write!(f, "#Param {}", idx)
+      }
+    }
+  }
 }
 
 impl IpldEmbed for Univ {
@@ -94,6 +121,28 @@ pub enum UnivMeta {
   Max(UnivMetaCid, UnivMetaCid),
   IMax(UnivMetaCid, UnivMetaCid),
   Param(NameCid),
+}
+
+impl Display for UnivMeta {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Zero => {
+        write!(f, "#Zero")
+      }
+      Self::Succ(pred) => {
+        write!(f, "#Succ {}", pred)
+      }
+      Self::Max(lhs, rhs) => {
+        write!(f, "#Max {} {}", lhs, rhs)
+      }
+      Self::IMax(lhs, rhs) => {
+        write!(f, "#IMax {} {}", lhs, rhs)
+      }
+      Self::Param(nam) => {
+        write!(f, "#Param {}", nam)
+      }
+    }
+  }
 }
 
 impl IpldEmbed for UnivMeta {

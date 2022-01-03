@@ -20,14 +20,17 @@ use crate::{
   },
   parse::position::Pos,
 };
+use sp_std::{
+  fmt,
+  fmt::Display,
+  vec::Vec,
+};
 
 use alloc::borrow::ToOwned;
 
 use num_bigint::BigUint;
 use sp_cid::Cid;
 use sp_ipld::Ipld;
-
-use sp_std::vec::Vec;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecursorRule {
@@ -104,6 +107,84 @@ pub enum Const {
   },
 }
 
+impl Display for RecursorRule {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "RecursorRule {} {} {}", self.ctor, self.fields, self.rhs)
+  }
+}
+
+impl Display for Intro {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "Intro {} {}", self.ctor, self.typ)
+  }
+}
+
+impl Display for Const {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Quotient { levels, typ, kind } => {
+        write!(f, "Quotient {} {} {}", levels, typ, kind)
+      }
+      Self::Axiom { levels, typ, is_unsafe, uid } => {
+        write!(f, "Axiom {} {} {} {}", levels, typ, is_unsafe, uid)
+      }
+      Self::Theorem { levels, typ, val } => {
+        write!(f, "Theorem {} {} {}", levels, typ, val)
+      }
+      Self::Opaque { levels, typ, val, is_unsafe, uid } => {
+        write!(f, "Opaque {} {} {} {} {}", levels, typ, val, is_unsafe, uid)
+      }
+      Self::Definition { levels, typ, val, safety } => {
+        write!(f, "Definition {} {} {} {}", levels, typ, val, safety)
+      }
+      Self::Inductive { levels, typ, params, indices, intros, is_unsafe } => {
+        write!(f, "Inductive {} {} {} {} ", levels, typ, params, indices)?;
+        for i in intros {
+          write!(f, "{} ", i)?;
+        }
+        write!(f, "{}", is_unsafe)
+      }
+      Self::Constructor {
+        levels,
+        typ,
+        induct,
+        cidx,
+        params,
+        fields,
+        is_unsafe,
+      } => {
+        write!(
+          f,
+          "Constructor {} {} {} {} {} {} {}",
+          levels, typ, induct, cidx, params, fields, is_unsafe
+        )
+      }
+      Self::Recursor {
+        levels,
+        typ,
+        induct,
+        params,
+        indices,
+        motives,
+        minors,
+        rules,
+        k,
+        is_unsafe,
+      } => {
+        write!(
+          f,
+          "Recursor {} {} {} {} {} {} {} ",
+          levels, typ, induct, params, indices, motives, minors,
+        )?;
+        for r in rules {
+          write!(f, "{} ", r)?;
+        }
+        write!(f, "{} {}", k, is_unsafe)
+      }
+    }
+  }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ConstMeta {
   Quotient {
@@ -161,6 +242,87 @@ pub enum ConstMeta {
     induct_meta: ConstMetaCid,
     rules_meta: Vec<ExprMetaCid>,
   },
+}
+impl Display for ConstMeta {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let print_pos = |x| match x {
+      Some(pos) => format!("{}", pos),
+      None => format!("_"),
+    };
+    match self {
+      Self::Quotient { pos, name, levels_meta, typ_meta } => {
+        write!(f, "Quotient {} {} [", print_pos(*pos), name)?;
+        for l in levels_meta {
+          write!(f, "{}", l)?;
+        }
+        write!(f, "] {}", typ_meta)
+      }
+      Self::Axiom { pos, name, levels_meta, typ_meta } => {
+        write!(f, "Axiom {} {} [", print_pos(*pos), name)?;
+        for l in levels_meta {
+          write!(f, "{}", l)?;
+        }
+        write!(f, "] {}", typ_meta)
+      }
+      Self::Theorem { pos, name, levels_meta, typ_meta, val_meta } => {
+        write!(f, "Axiom {} {} [", print_pos(*pos), name)?;
+        for l in levels_meta {
+          write!(f, "{}", l)?;
+        }
+        write!(f, "] {} {}", typ_meta, val_meta)
+      }
+      Self::Opaque { pos, name, levels_meta, typ_meta, val_meta } => {
+        write!(f, "Opaque {} {} [", print_pos(*pos), name)?;
+        for l in levels_meta {
+          write!(f, "{}", l)?;
+        }
+        write!(f, "] {} {}", typ_meta, val_meta)
+      }
+      Self::Definition { pos, name, levels_meta, typ_meta, val_meta } => {
+        write!(f, "Definition {} {} [", print_pos(*pos), name)?;
+        for l in levels_meta {
+          write!(f, "{}", l)?;
+        }
+        write!(f, "] {} {}", typ_meta, val_meta)
+      }
+      Self::Inductive { pos, name, levels_meta, typ_meta, intros_meta } => {
+        write!(f, "Inductive {} {} [", print_pos(*pos), name)?;
+        for l in levels_meta {
+          write!(f, "{}", l)?;
+        }
+        write!(f, "] {} [", typ_meta)?;
+        for i in intros_meta {
+          write!(f, "{} ", i)?;
+        }
+        write!(f, "]")
+      }
+      Self::Constructor { pos, name, levels_meta, typ_meta, induct_meta } => {
+        write!(f, "Constructor {} {} [", print_pos(*pos), name)?;
+        for l in levels_meta {
+          write!(f, "{}", l)?;
+        }
+        write!(f, "] {} {}", typ_meta, induct_meta)
+      }
+      Self::Recursor {
+        pos,
+        name,
+        levels_meta,
+        typ_meta,
+        induct_meta,
+        rules_meta,
+      } => {
+        write!(f, "Recursor {} {} [", print_pos(*pos), name)?;
+        for l in levels_meta {
+          write!(f, "{}", l)?;
+        }
+        write!(f, "] {} {} [", typ_meta, induct_meta)?;
+        for r in rules_meta {
+          write!(f, "{} ", r)?;
+        }
+        write!(f, "]")
+      }
+    }
+  }
 }
 
 impl IpldEmbed for QuotKind {
@@ -682,28 +844,6 @@ pub mod tests {
     Arbitrary,
     Gen,
   };
-
-  impl Arbitrary for QuotKind {
-    fn arbitrary(g: &mut Gen) -> Self {
-      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> QuotKind>)> = vec![
-        (1, Box::new(|_| QuotKind::Type)),
-        (1, Box::new(|_| QuotKind::Ctor)),
-        (1, Box::new(|_| QuotKind::Lift)),
-        (1, Box::new(|_| QuotKind::Ind)),
-      ];
-      frequency(g, input)
-    }
-  }
-  impl Arbitrary for DefinitionSafety {
-    fn arbitrary(g: &mut Gen) -> Self {
-      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> DefinitionSafety>)> = vec![
-        (1, Box::new(|_| DefinitionSafety::Unsafe)),
-        (1, Box::new(|_| DefinitionSafety::Safe)),
-        (1, Box::new(|_| DefinitionSafety::Partial)),
-      ];
-      frequency(g, input)
-    }
-  }
 
   impl Arbitrary for Intro {
     fn arbitrary(g: &mut Gen) -> Self {

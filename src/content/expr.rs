@@ -34,7 +34,11 @@ use alloc::{
 
 use sp_im::vector::Vector;
 use sp_ipld::Ipld;
-use sp_std::vec::Vec;
+use sp_std::{
+  fmt,
+  fmt::Display,
+  vec::Vec,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expr {
@@ -115,6 +119,44 @@ impl IpldEmbed for Literal {
         xs => Err(IpldError::expected("Expr", &List(xs.to_owned()))),
       },
       x => Err(IpldError::expected("Expr", x)),
+    }
+  }
+}
+
+impl Display for Expr {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Var { idx } => {
+        write!(f, "Var {}", idx)
+      }
+      Self::Sort { univ } => {
+        write!(f, "Sort {}", univ)
+      }
+      Self::Const { constant, levels } => {
+        write!(f, "Const {} ", constant)?;
+        for l in levels {
+          write!(f, "{}", l)?;
+        }
+        Ok(())
+      }
+      Self::App { fun, arg } => {
+        write!(f, "App {} {}", fun, arg)
+      }
+      Self::Lam { info, typ, bod } => {
+        write!(f, "Lam {} {} {}", info, typ, bod)
+      }
+      Self::Pi { info, typ, bod } => {
+        write!(f, "Pi {} {} {}", info, typ, bod)
+      }
+      Self::Let { typ, val, bod } => {
+        write!(f, "Let {} {} {}", typ, val, bod)
+      }
+      Self::Lit { val } => {
+        write!(f, "Lit {}", val)
+      }
+      Self::Fix { bod } => {
+        write!(f, "Fix {}", bod)
+      }
     }
   }
 }
@@ -233,6 +275,49 @@ impl IpldEmbed for Expr {
     }
   }
 }
+
+impl Display for ExprMeta {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let print_pos = |x| match x {
+      Some(pos) => format!("{}", pos),
+      None => format!("_"),
+    };
+    match self {
+      Self::Var(pos) => {
+        write!(f, "Var {}", print_pos(*pos))
+      }
+      Self::Sort(pos, cid) => {
+        write!(f, "Sort {} {}", print_pos(*pos), cid)
+      }
+      Self::Const(pos, name, typ, levels) => {
+        write!(f, "Const {} {} {}", print_pos(*pos), name, typ)?;
+        for l in levels {
+          write!(f, "{}", l)?;
+        }
+        Ok(())
+      }
+      Self::App(pos, fun, arg) => {
+        write!(f, "App {} {} {}", print_pos(*pos), fun, arg)
+      }
+      Self::Lam(pos, nam, typ, bod) => {
+        write!(f, "Lam {} {} {} {}", print_pos(*pos), nam, typ, bod)
+      }
+      Self::Pi(pos, nam, typ, bod) => {
+        write!(f, "Pi {} {} {} {}", print_pos(*pos), nam, typ, bod)
+      }
+      Self::Let(pos, nam, typ, val, bod) => {
+        write!(f, "Let {} {} {} {} {}", print_pos(*pos), nam, typ, val, bod)
+      }
+      Self::Lit(pos) => {
+        write!(f, "Lit {}", print_pos(*pos))
+      }
+      Self::Fix(pos, nam, bod) => {
+        write!(f, "Fix {} {} {}", print_pos(*pos), nam, bod)
+      }
+    }
+  }
+}
+
 impl IpldEmbed for ExprMeta {
   fn to_ipld(&self) -> Ipld {
     match self {

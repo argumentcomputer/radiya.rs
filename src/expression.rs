@@ -12,6 +12,11 @@ use sp_std::{
 use num_bigint::BigUint;
 use sp_im::vector::Vector;
 
+use sp_std::{
+  fmt,
+  fmt::Display,
+};
+
 use crate::parse::position::Pos;
 
 use alloc::string::String;
@@ -21,6 +26,20 @@ pub enum Literal {
   Nat(BigUint),
   Str(String),
 }
+
+impl Display for Literal {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Nat(x) => {
+        write!(f, "Nat {}", x)
+      }
+      Self::Str(x) => {
+        write!(f, "Str {}", x)
+      }
+    }
+  }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinderInfo {
   Default,
@@ -30,10 +49,31 @@ pub enum BinderInfo {
   AuxDecl,
 }
 
+impl Display for BinderInfo {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Default => {
+        write!(f, "Default")
+      }
+      Self::Implicit => {
+        write!(f, "Implicit")
+      }
+      Self::StrictImplicit => {
+        write!(f, "StrictImplicit")
+      }
+      Self::InstImplicit => {
+        write!(f, "InstImplicit")
+      }
+      Self::AuxDecl => {
+        write!(f, "AuxDecl")
+      }
+    }
+  }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
-  BVar(Pos, usize),
-  FVar(Pos, usize, Name, BinderInfo, Box<Expression>),
+  Var(Pos, usize),
   Sort(Pos, Box<Universe>),
   Const(Pos, Name, Vector<Universe>),
   App(Pos, Box<Expression>, Box<Expression>),
@@ -46,8 +86,7 @@ pub enum Expression {
 
 #[derive(Debug)]
 pub enum GenExpression {
-  BVar(Pos, usize),
-  FVar(Pos, usize, Name, BinderInfo, NonNull<MaybeUninit<GenExpression>>),
+  Var(Pos, usize),
   Sort(Pos, Box<Universe>),
   Const(Pos, Name, Vector<Universe>),
   App(
@@ -119,7 +158,7 @@ pub mod tests {
   }
   #[derive(Debug, Clone, Copy)]
   pub enum ExpressionCase {
-    BVAR,
+    VAR,
     SORT,
     CONST,
     APP,
@@ -145,7 +184,7 @@ pub mod tests {
     while let Some((ctx, mut ptr)) = stack.pop() {
       let depth = ctx.len();
       let gens: Vec<(usize, ExpressionCase)> = vec![
-        (if ctx.len() == 0 { 0 } else { 100 }, ExpressionCase::BVAR),
+        (if ctx.len() == 0 { 0 } else { 100 }, ExpressionCase::VAR),
         (100, ExpressionCase::SORT),
         // TODO: correct CONST generation
         //(100, ExpressionCase::CONST),
@@ -174,12 +213,12 @@ pub mod tests {
           }
           *ptr.as_mut() = MaybeUninit::new(Const(Pos::None, nam, us.into()))
         },
-        ExpressionCase::BVAR => {
+        ExpressionCase::VAR => {
           let gen = gen_range(g, 0..ctx.len());
           let n = &ctx[gen];
           let (i, _) = ctx.iter().enumerate().find(|(_, x)| *x == n).unwrap();
           unsafe {
-            *ptr.as_mut() = MaybeUninit::new(BVar(Pos::None, i as usize));
+            *ptr.as_mut() = MaybeUninit::new(Var(Pos::None, i as usize));
           }
         }
         ExpressionCase::LAM => {

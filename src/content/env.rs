@@ -47,12 +47,12 @@ pub struct Env {
   pub expr_meta: BTreeMap<ExprMetaCid, ExprMeta>,
   pub constant: BTreeMap<ConstCid, Const>,
   pub const_meta: BTreeMap<ConstMetaCid, ConstMeta>,
-  pub env: BTreeMap<ConstMetaCid, ConstCid>,
+  pub env: BTreeMap<NameCid, (ConstCid, ConstMetaCid)>,
 }
 
-impl Cache {
+impl Env {
   pub fn new() -> Self {
-    Cache {
+    Env {
       lit: BTreeMap::new(),
       name: BTreeMap::new(),
       univ: BTreeMap::new(),
@@ -61,6 +61,7 @@ impl Cache {
       expr_meta: BTreeMap::new(),
       constant: BTreeMap::new(),
       const_meta: BTreeMap::new(),
+      env: BTreeMap::new(),
     }
   }
 
@@ -71,7 +72,7 @@ impl Cache {
   }
 
   pub fn get_literal(&mut self, cid: &LitCid) -> Result<&Literal, EmbedError> {
-    self.lit.get(cid).ok_or(CacheGetLit(*cid))
+    self.lit.get(cid).ok_or(EnvGetLit(*cid))
   }
 
   pub fn put_name(&mut self, name: Name) -> Result<NameCid, EmbedError> {
@@ -80,8 +81,8 @@ impl Cache {
     Ok(cid)
   }
 
-  pub fn get_name(&mut self, cid: &NameCid) -> Result<&Name, EmbedError> {
-    self.name.get(cid).ok_or(CacheGetName(*cid))
+  pub fn get_name(&mut self, cid: &NameCid) -> Result<Name, EmbedError> {
+    self.name.get(cid).ok_or(EnvGetName(*cid)).map(|x| x.clone())
   }
 
   pub fn put_univ(&mut self, univ: Univ) -> Result<UnivCid, EmbedError> {
@@ -91,7 +92,7 @@ impl Cache {
   }
 
   pub fn get_univ(&mut self, cid: &UnivCid) -> Result<&Univ, EmbedError> {
-    self.univ.get(cid).ok_or(CacheGetUniv(*cid))
+    self.univ.get(cid).ok_or(EnvGetUniv(*cid))
   }
 
   pub fn put_univ_meta(
@@ -107,7 +108,7 @@ impl Cache {
     &mut self,
     cid: &UnivMetaCid,
   ) -> Result<&UnivMeta, EmbedError> {
-    self.univ_meta.get(cid).ok_or(CacheGetUnivMeta(*cid))
+    self.univ_meta.get(cid).ok_or(EnvGetUnivMeta(*cid))
   }
 
   pub fn put_expr(&mut self, expr: Expr) -> Result<ExprCid, EmbedError> {
@@ -117,7 +118,7 @@ impl Cache {
   }
 
   pub fn get_expr(&mut self, cid: &ExprCid) -> Result<&Expr, EmbedError> {
-    self.expr.get(cid).ok_or(CacheGetExpr(*cid))
+    self.expr.get(cid).ok_or(EnvGetExpr(*cid))
   }
 
   pub fn put_expr_meta(
@@ -133,7 +134,7 @@ impl Cache {
     &mut self,
     cid: &ExprMetaCid,
   ) -> Result<&ExprMeta, EmbedError> {
-    self.expr_meta.get(cid).ok_or(CacheGetExprMeta(*cid))
+    self.expr_meta.get(cid).ok_or(EnvGetExprMeta(*cid))
   }
 
   pub fn put_constant(&mut self, lit: Const) -> Result<ConstCid, EmbedError> {
@@ -143,7 +144,7 @@ impl Cache {
   }
 
   pub fn get_constant(&mut self, cid: &ConstCid) -> Result<&Const, EmbedError> {
-    self.constant.get(cid).ok_or(CacheGetConst(*cid))
+    self.constant.get(cid).ok_or(EnvGetConst(*cid))
   }
 
   pub fn put_const_meta(
@@ -159,13 +160,19 @@ impl Cache {
     &mut self,
     cid: &ConstMetaCid,
   ) -> Result<&ConstMeta, EmbedError> {
-    self.const_meta.get(cid).ok_or(CacheGetConstMeta(*cid))
+    self.const_meta.get(cid).ok_or(EnvGetConstMeta(*cid))
+  }
+
+  pub fn get_env(
+    &mut self,
+    cid: &NameCid,
+  ) -> Result<(ConstCid, ConstMetaCid), EmbedError> {
+    self.env.get(cid).ok_or(UndefinedConst(*cid)).map(|(x, y)| (*x, *y))
   }
 }
 
-impl Display for Cache {
+impl Display for Env {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    writeln!(f, "Content")?;
     writeln!(f, "Literals")?;
     for (cid, x) in self.lit.iter() {
       writeln!(f, "{} {}", cid, x)?;
@@ -182,18 +189,21 @@ impl Display for Cache {
     for (cid, x) in self.constant.iter() {
       writeln!(f, "{} {}", cid, x)?;
     }
-    writeln!(f, "Metadata")?;
-    writeln!(f, "Universes")?;
+    writeln!(f, "Universe Metadata")?;
     for (cid, x) in self.univ_meta.iter() {
       writeln!(f, "{} {}", cid, x)?;
     }
-    writeln!(f, "Expressions")?;
+    writeln!(f, "Expression Metadata")?;
     for (cid, x) in self.expr_meta.iter() {
       writeln!(f, "{} {}", cid, x)?;
     }
-    writeln!(f, "Constants")?;
+    writeln!(f, "Constant Metadata")?;
     for (cid, x) in self.const_meta.iter() {
       writeln!(f, "{} {}", cid, x)?;
+    }
+    writeln!(f, "Environment")?;
+    for (n, (c, cm)) in self.env.iter() {
+      writeln!(f, "{} {} {}", n, c, cm)?;
     }
     Ok(())
   }

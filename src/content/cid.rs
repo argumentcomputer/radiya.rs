@@ -1,6 +1,10 @@
 use alloc::string::String;
 use sp_cid::Cid;
 use sp_ipld::Ipld;
+use sp_std::{
+  fmt,
+  fmt::Display,
+};
 
 use crate::content::{
   constant::{
@@ -71,8 +75,20 @@ impl IpldEmbed for LitCid {
   }
 }
 
+impl Display for LitCid {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
+
 impl NameCid {
   pub fn new(name: &Name) -> Self { NameCid(cid(NAME, &name.to_ipld())) }
+}
+
+impl Display for NameCid {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.0)
+  }
 }
 
 impl IpldEmbed for NameCid {
@@ -100,9 +116,21 @@ impl IpldEmbed for UnivCid {
     }
   }
 }
+
+impl Display for UnivCid {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
 impl UnivMetaCid {
   pub fn new(univ: &UnivMeta) -> Self {
     UnivMetaCid(cid(UNIV_META, &univ.to_ipld()))
+  }
+}
+
+impl Display for UnivMetaCid {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.0)
   }
 }
 
@@ -120,6 +148,11 @@ impl IpldEmbed for UnivMetaCid {
 impl ExprCid {
   pub fn new(expr: &Expr) -> Self { ExprCid(cid(EXPR, &expr.to_ipld())) }
 }
+impl Display for ExprCid {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
 
 impl IpldEmbed for ExprCid {
   fn to_ipld(&self) -> Ipld { Ipld::Link(self.0) }
@@ -134,6 +167,12 @@ impl IpldEmbed for ExprCid {
 impl ExprMetaCid {
   pub fn new(expr: &ExprMeta) -> Self {
     ExprMetaCid(cid(EXPR_META, &expr.to_ipld()))
+  }
+}
+
+impl Display for ExprMetaCid {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.0)
   }
 }
 
@@ -153,6 +192,11 @@ impl ConstCid {
     ConstCid(cid(CONST, &constant.to_ipld()))
   }
 }
+impl Display for ConstCid {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.0)
+  }
+}
 
 impl IpldEmbed for ConstCid {
   fn to_ipld(&self) -> Ipld { Ipld::Link(self.0) }
@@ -168,6 +212,12 @@ impl IpldEmbed for ConstCid {
 impl ConstMetaCid {
   pub fn new(expr: &ConstMeta) -> Self {
     ConstMetaCid(cid(CONST_META, &expr.to_ipld()))
+  }
+}
+
+impl Display for ConstMetaCid {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.0)
   }
 }
 
