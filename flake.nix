@@ -1,23 +1,53 @@
 {
   inputs = {
+    lean = {
+      url = github:leanprover/lean4;
+    };
+    nixpkgs.url = github:nixos/nixpkgs/nixos-21.05;
+    flake-utils = {
+      url = github:numtide/flake-utils;
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    # A lean dependency
+    lean-ipld = {
+      url = github:yatima-inc/lean-ipld;
+      inputs.lean.follows = "lean";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.utils.follows = "utils";
+    };
     utils.url = "github:yatima-inc/nix-utils";
   };
 
   outputs =
     { self
     , utils
+    , lean
+    , flake-utils
+    , nixpkgs
+    , lean-ipld
     }:
-    utils.inputs.flake-utils.lib.eachDefaultSystem (system:
+    flake-utils.lib.eachDefaultSystem (system:
     let
       lib = utils.lib.${system};
-      pkgs = utils.nixpkgs.${system};
+      leanPkgs = lean.packages.${system};
+      pkgs = nixpkgs.legacyPackages.${system};
+      # Lean
+      Radiya = leanPkgs.buildLeanPackage {
+        name = "Radiya";
+        deps = [ lean-ipld.project.${system} ];
+        src = ./lean;
+      };
+      # Rust
       inherit (lib) buildRustProject testRustProject rustDefault filterRustProject;
       rust = rustDefault;
-      crateName = "my-crate";
+      crateName = "radiya";
       root = ./.;
     in
     {
-      packages.${crateName} = buildRustProject { inherit root; };
+      packages = {
+        Radiya = Radiya.executable;
+        ${crateName} = buildRustProject { inherit root; };
+      };
 
       checks.${crateName} = testRustProject { doCheck = true; inherit root; };
 
@@ -28,6 +58,7 @@
         inputsFrom = builtins.attrValues self.packages.${system};
         nativeBuildInputs = [ rust ];
         buildInputs = with pkgs; [
+          leanPkgs.lean
           rust-analyzer
           clippy
           rustfmt
