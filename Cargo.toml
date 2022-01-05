@@ -26,6 +26,7 @@ multibase = { version = "0.9.1", default-features = false }
 nom_locate = { git = "https://github.com/yatima-inc/nom_locate", branch = "main" }
 sp-im = { git = "https://github.com/yatima-inc/sp-im", branch = "main" }
 sized-chunks = { version = "0.6.5", default-features = false }
+tailcall = "0.1.6"
 
 [dev-dependencies]
 quickcheck = "1.0.3"

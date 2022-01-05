@@ -5,6 +5,7 @@ use crate::{
 };
 use sp_std::{
   boxed::Box,
+  rc::Rc,
   mem::MaybeUninit,
   ptr::NonNull,
 };
@@ -76,12 +77,12 @@ pub enum Expression {
   Var(Pos, usize),
   Sort(Pos, Box<Universe>),
   Const(Pos, Name, Vector<Universe>),
-  App(Pos, Box<Expression>, Box<Expression>),
-  Lam(Pos, Name, BinderInfo, Box<Expression>, Box<Expression>),
-  Pi(Pos, Name, BinderInfo, Box<Expression>, Box<Expression>),
-  Let(Pos, Name, Box<Expression>, Box<Expression>, Box<Expression>),
+  App(Pos, Rc<Expression>, Rc<Expression>),
+  Lam(Pos, Name, BinderInfo, Rc<Expression>, Rc<Expression>),
+  Pi(Pos, Name, BinderInfo, Rc<Expression>, Rc<Expression>),
+  Let(Pos, Name, Rc<Expression>, Rc<Expression>, Rc<Expression>),
   Lit(Pos, Literal),
-  Fix(Pos, Name, Box<Expression>),
+  Fix(Pos, Name, Rc<Expression>),
 }
 
 #[derive(Debug)]

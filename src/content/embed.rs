@@ -41,6 +41,7 @@ use num_bigint::BigUint;
 use sp_im::vector::Vector;
 use sp_std::{
   boxed::Box,
+  rc::Rc,
   convert::TryInto,
   vec::Vec,
 };
@@ -317,7 +318,7 @@ impl Expression {
       (Expr::App { fun, arg }, ExprMeta::App(pos, fun_meta, arg_meta)) => {
         let fun = Self::unembed(cache, fun, fun_meta)?;
         let arg = Self::unembed(cache, arg, arg_meta)?;
-        Ok(Self::App(pos, Box::new(fun), Box::new(arg)))
+        Ok(Self::App(pos, Rc::new(fun), Rc::new(arg)))
       }
       (
         Expr::Lam { info, typ, bod },
@@ -326,7 +327,7 @@ impl Expression {
         let name = name::Name::unembed(cache, name)?;
         let typ = Self::unembed(cache, typ, typ_meta)?;
         let bod = Self::unembed(cache, bod, bod_meta)?;
-        Ok(Self::Lam(pos, name, info, Box::new(typ), Box::new(bod)))
+        Ok(Self::Lam(pos, name, info, Rc::new(typ), Rc::new(bod)))
       }
       (
         Expr::Pi { info, typ, bod },
@@ -335,7 +336,7 @@ impl Expression {
         let name = name::Name::unembed(cache, name)?;
         let typ = Self::unembed(cache, typ, typ_meta)?;
         let bod = Self::unembed(cache, bod, bod_meta)?;
-        Ok(Self::Pi(pos, name, info, Box::new(typ), Box::new(bod)))
+        Ok(Self::Pi(pos, name, info, Rc::new(typ), Rc::new(bod)))
       }
       (
         Expr::Let { typ, val, bod },
@@ -345,7 +346,7 @@ impl Expression {
         let typ = Self::unembed(cache, typ, typ_meta)?;
         let val = Self::unembed(cache, val, val_meta)?;
         let bod = Self::unembed(cache, bod, bod_meta)?;
-        Ok(Self::Let(pos, name, Box::new(typ), Box::new(val), Box::new(bod)))
+        Ok(Self::Let(pos, name, Rc::new(typ), Rc::new(val), Rc::new(bod)))
       }
       (Expr::Lit { val }, ExprMeta::Lit(pos)) => {
         let val = Literal::unembed(cache, val)?;
@@ -354,7 +355,7 @@ impl Expression {
       (Expr::Fix { bod }, ExprMeta::Fix(pos, name, bod_meta)) => {
         let name = name::Name::unembed(cache, name)?;
         let bod = Self::unembed(cache, bod, bod_meta)?;
-        Ok(Self::Fix(pos, name, Box::new(bod)))
+        Ok(Self::Fix(pos, name, Rc::new(bod)))
       }
       (expr, meta) => Err(EmbedError::Expr(expr, meta)),
     }

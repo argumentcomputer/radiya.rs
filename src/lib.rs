@@ -23,6 +23,8 @@ pub mod content;
 // pub mod export;
 pub mod check;
 pub mod expression;
+pub mod value;
+pub mod eval;
 pub mod name;
 pub mod parse;
 pub mod universe;
