@@ -16,6 +16,7 @@ pub struct Node {
   env: Env,
   args: Args,
   cont: Continuation,
+  is_let: bool,
 }
 
 pub fn eval(heap: &mut Heap, term: Rc<Expression>, env: Env, args: Args) -> ValuePtr {
@@ -29,7 +30,11 @@ fn cont_or_ret<'a>(
   match cont {
     None => trampoline::Finish(val),
     Some(mut ctx) => {
-      ctx.args.push(val);
+      if ctx.is_let {
+	ctx.env.push_front(val);
+      } else {
+	ctx.args.push(val);
+      }
       trampoline::Recurse((heap, ctx.term, ctx.env, ctx.args, ctx.cont))
     },
   }
@@ -47,6 +52,7 @@ pub fn eval_step<'a>(
           env: env.clone(),
           args,
           cont,
+	  is_let: false,
         })
       );
       trampoline::Recurse((heap, arg.clone(), env, vec![], cont))
@@ -58,7 +64,7 @@ pub fn eval_step<'a>(
           trampoline::Recurse((heap, bod.clone(), env, args, cont))
         },
         None => {
-          let val = lam(nam.clone(), bnd.clone(), bod.clone(), env, heap);
+          let val = push_lam(nam.clone(), bnd.clone(), bod.clone(), env, heap);
 	  cont_or_ret(heap, val, cont)
         },
       }
@@ -75,7 +81,7 @@ pub fn eval_step<'a>(
             args.extend_from_slice(p_args);
 	    match neu {
 	      Neutral::Var(idx) => {
-		let val = app(Neutral::Var(*idx), args, heap);
+		let val = push_app(Neutral::Var(*idx), args, heap);
 		cont_or_ret(heap, val, cont)
 	      },
 	      Neutral::Const(..) => {
@@ -91,11 +97,47 @@ pub fn eval_step<'a>(
 	    let term = bod.clone();
             trampoline::Recurse((heap, term, env, args, cont))
           },
+	  Value::Thunk(tuple) => {
+	    let (bod, env) = &**tuple;
+	    let mut env = env.clone();
+	    env.push_front(val);
+            trampoline::Recurse((heap, term, env, args, cont))
+	  },
 	  // Should not be possible since expressions are well-typed
 	  _ => unreachable!(),
         }
       }
     },
-    _ => todo!()
+    Expression::Let(_, _, _, val, bod) => {
+      cont = Some(
+        Box::new(Node {
+          term: bod.clone(),
+          env: env.clone(),
+          args,
+          cont,
+	  is_let: true,
+        })
+      );
+      trampoline::Recurse((heap, val.clone(), env, vec![], cont))
+    },
+    Expression::Fix(_, _, bod) => {
+      let val = push_thunk(term.clone(), env.clone(), heap);
+      env.push_front(val);
+      trampoline::Recurse((heap, bod.clone(), env, args, cont))
+    },
+    Expression::Const(_, _, _) => todo!(),
+    // These last cases assumes `args.len() == 0`, which should be the case if the expressions are type checked
+    Expression::Sort(_, lvl) => {
+      let val = push_sort(lvl.clone(), heap);
+      cont_or_ret(heap, val, cont)
+    },
+    Expression::Pi(_, nam, bnd, dom, img) => {
+      let val = push_pi(nam.clone(), bnd.clone(), dom.clone(), img.clone(), env.clone(), heap);
+      cont_or_ret(heap, val, cont)
+    },
+    Expression::Lit(_, lit) => {
+      let val = push_lit(lit.clone(), heap);
+      cont_or_ret(heap, val, cont)
+    },
   }
 }
