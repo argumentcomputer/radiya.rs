@@ -31,10 +31,11 @@
       lib = utils.lib.${system};
       leanPkgs = lean.packages.${system};
       pkgs = nixpkgs.legacyPackages.${system};
+      Ipld = lean-ipld.project.${system};
       # Lean
       Radiya = leanPkgs.buildLeanPackage {
         name = "Radiya";
-        deps = [ lean-ipld.project.${system} ];
+        deps = with leanPkgs; [ Init Lean ];
         src = ./lean;
       };
       # Rust
@@ -42,6 +43,7 @@
       rust = rustDefault;
       crateName = "radiya";
       root = ./.;
+      joinDepsDerivationns = getSubDrv: lib.concatStringsSep ":" (map (d: "${getSubDrv d}") ([ ] ++ Radiya.allExternalDeps));  
     in
     {
       packages = {
@@ -63,6 +65,8 @@
           clippy
           rustfmt
         ];
+        LEAN_PATH = joinDepsDerivationns (d: d.modRoot);
+        LEAN_SRC_PATH = joinDepsDerivationns (d: d.src);    
       };
     });
 }
