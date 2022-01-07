@@ -1,7 +1,8 @@
 {
   inputs = {
     lean = {
-      url = github:leanprover/lean4;
+      # url = github:leanprover/lean4;
+      url = github:yatima-inc/lean4/acs/fix-duplicate-dep-root;
     };
     nixpkgs.url = github:nixos/nixpkgs/nixos-21.05;
     flake-utils = {
@@ -35,7 +36,7 @@
       # Lean
       Radiya = leanPkgs.buildLeanPackage {
         name = "Radiya";
-        deps = with leanPkgs; [ Init Lean ];
+        deps = with leanPkgs; [ Init Lean Ipld ];
         src = ./lean;
       };
       # Rust

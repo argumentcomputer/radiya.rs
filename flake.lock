@@ -161,15 +161,16 @@
         "temci": "temci"
       },
       "locked": {
-        "lastModified": 1641548745,
-        "narHash": "sha256-omTtQbyueU0EtDjRHeujgUlxoyayaznskXfuXIdaEHE=",
-        "owner": "leanprover",
+        "lastModified": 1641571519,
+        "narHash": "sha256-8+87eNFL+WAsffHSTUf17PGWc0mme2KpBXMP8be9z6s=",
+        "owner": "yatima-inc",
         "repo": "lean4",
-        "rev": "dcaf3c615f064ebcd1ac79c31710e5bc13e5324d",
+        "rev": "d651659d9f7dc023ed4e7c7e7307740d751d2ae6",
         "type": "github"
       },
       "original": {
-        "owner": "leanprover",
+        "owner": "yatima-inc",
+        "ref": "acs/fix-duplicate-dep-root",
         "repo": "lean4",
         "type": "github"
       }
