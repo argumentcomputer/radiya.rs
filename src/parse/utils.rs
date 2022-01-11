@@ -1,11 +1,14 @@
 use crate::parse::{
   base,
+  base::parse_multibase,
   error::{
     ParseError,
     ParseErrorKind,
   },
   span::Span,
 };
+use sp_cid::Cid;
+use sp_std::convert::TryFrom;
 
 use nom::{
   bytes::complete::{
@@ -19,6 +22,7 @@ use nom::{
   },
   multi::many0,
   sequence::terminated,
+  Err,
   IResult,
 };
 
@@ -78,4 +82,12 @@ pub fn parse_space1(i: Span) -> IResult<Span, Vec<Span>, ParseError<Span>> {
   let (i, _) = multispace1(i)?;
   let (i, com) = many0(terminated(parse_line_comment, multispace1))(i)?;
   Ok((i, com))
+}
+
+pub fn parse_cid(from: Span) -> IResult<Span, Cid, ParseError<Span>> {
+  let (upto, (_, bytes)) = parse_multibase()(from)?;
+  match Cid::try_from(bytes) {
+    Ok(cid) => Ok((upto, cid)),
+    Err(_) => Err(Err::Error(ParseError::new(upto, ParseErrorKind::CidError))),
+  }
 }

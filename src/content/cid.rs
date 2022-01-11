@@ -239,6 +239,10 @@ pub mod tests {
     Gen,
   };
   use sp_cid::Cid;
+  use sp_ipld::{
+    dag_cbor::DagCborCodec,
+    Codec,
+  };
   use sp_multihash::{
     Code,
     MultihashDigest,

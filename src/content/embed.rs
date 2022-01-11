@@ -883,17 +883,17 @@ pub mod tests {
     Ok(univ == univ2)
   }
 
-  #[quickcheck]
-  fn expr_embed(expr: Expression) -> bool {
-    println!("{:?}", expr);
-    match expr_embed_inner(expr) {
-      Ok(x) => x,
-      Err(x) => {
-        println!("{:?}", x);
-        false
-      }
-    }
-  }
+  //#[quickcheck]
+  // fn expr_embed(expr: Expression) -> bool {
+  //  println!("{:?}", expr);
+  //  match expr_embed_inner(expr) {
+  //    Ok(x) => x,
+  //    Err(x) => {
+  //      println!("{:?}", x);
+  //      false
+  //    }
+  //  }
+  //}
 
   fn expr_embed_inner(expr: Expression) -> Result<bool, EmbedError> {
     let mut env = Env::new();
@@ -902,17 +902,17 @@ pub mod tests {
     Ok(expr == expr2)
   }
 
-  #[quickcheck]
-  fn constant_embed(constant: Constant) -> bool {
-    println!("{:?}", constant);
-    match constant_embed_inner(constant) {
-      Ok(x) => x,
-      Err(x) => {
-        println!("{:?}", x);
-        false
-      }
-    }
-  }
+  //#[quickcheck]
+  // fn constant_embed(constant: Constant) -> bool {
+  //  println!("{:?}", constant);
+  //  match constant_embed_inner(constant) {
+  //    Ok(x) => x,
+  //    Err(x) => {
+  //      println!("{:?}", x);
+  //      false
+  //    }
+  //  }
+  //}
 
   fn constant_embed_inner(constant: Constant) -> Result<bool, EmbedError> {
     let mut env = Env::new();
