@@ -1,8 +1,7 @@
 use crate::{
-  export::{
-    EIdx,
-    NIdx,
-    UIdx,
+  expression::{
+    LitType,
+    Literal,
   },
   name::Name,
   parse::{
@@ -19,39 +18,37 @@ use nom::{
   InputLength,
 };
 
-use sp_std::{
+use core::{
   cmp::Ordering,
   fmt,
   fmt::Write,
   num::ParseIntError,
-  vec::Vec,
 };
 
-use sp_im::vector::Vector;
+use alloc::vec::Vec;
+
+use im::vector::Vector;
 
 use alloc::string::String;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseErrorKind {
-  // UndefinedReference(Name, Vector<Name>),
+  UndefinedReference(Name, Vector<Name>),
+  UndefinedUniverse(Name, Vector<Name>),
   MultibaseError(multibase::Error),
   InvalidBaseEncoding(base::LitBase),
   UnknownBaseCode,
-  UndefinedNIdx(NIdx),
-  UndefinedEIdx(EIdx),
-  UndefinedUIdx(UIdx),
-  RedefinedNIdx(NIdx),
-  RedefinedEIdx(EIdx),
-  RedefinedUIdx(UIdx),
-  // ExpectedSingleChar(Vec<char>),
-  // InvalidBase16EscapeSequence(String),
-  // CidError,
+  ExpectedSingleChar(Vec<char>),
+  InvalidBase16EscapeSequence(String),
+  CidError,
   ParseIntErr(ParseIntError),
-  // ReservedKeyword(String),
-  // NumericSyntax(String),
-  // ReservedSyntax(String),
+  ReservedKeyword(String),
+  NumericSyntax(String),
+  ReservedSyntax(String),
+  LitTypeLacksTermination(LitType),
+  LiteralLacksTermination(Literal),
   // TypeDefConstructorMustReturnItsType,
-  // InvalidSymbol(String),
+  InvalidSymbol(String),
   Nom(ErrorKind),
 }
 

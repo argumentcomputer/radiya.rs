@@ -29,6 +29,7 @@ use serde::{
   Serialize,
 };
 
+// Cid codec values, should be added to the Multicodec table
 pub const UNIV_ANON: u64 = 0xC0DE0001;
 pub const EXPR_ANON: u64 = 0xC0DE0002;
 pub const CONST_ANON: u64 = 0xC0DE0003;

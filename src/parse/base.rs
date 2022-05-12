@@ -22,12 +22,12 @@ use nom::{
   InputTakeAtPosition,
 };
 
-use sp_std::{
-  vec::Vec,
-  boxed::Box,
+use alloc::{
   borrow::ToOwned,
+  boxed::Box,
+  vec::Vec,
 };
-   
+
 use alloc::string::String;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -129,7 +129,7 @@ pub fn parse_bin_digits()
       "binary digits",
       take_till(|x| !(LitBase::Bin.is_digit(x) || x == '_')),
     )(i)?;
-    let ds: String = sp_std::iter::once(d)
+    let ds: String = core::iter::once(d)
       .chain((*ds.fragment()).to_owned().chars())
       .filter(|x| *x != '_')
       .collect();
@@ -146,7 +146,7 @@ pub fn parse_oct_digits()
       "octal digits",
       take_till(|x| !(LitBase::Oct.is_digit(x) || x == '_')),
     )(i)?;
-    let ds: String = sp_std::iter::once(d)
+    let ds: String = core::iter::once(d)
       .chain((*ds.fragment()).to_owned().chars())
       .filter(|x| *x != '_')
       .collect();
@@ -163,7 +163,7 @@ pub fn parse_dec_digits()
       "decimal digits",
       take_till(|x| !(LitBase::Dec.is_digit(x) || x == '_')),
     )(i)?;
-    let ds: String = sp_std::iter::once(d)
+    let ds: String = core::iter::once(d)
       .chain((*ds.fragment()).to_owned().chars())
       .filter(|x| *x != '_')
       .collect();
@@ -182,7 +182,7 @@ pub fn parse_hex_digits()
       "hexadecimal digits",
       take_till(|x| !(LitBase::Hex.is_digit(x) || x == '_')),
     )(i)?;
-    let ds: String = sp_std::iter::once(d)
+    let ds: String = core::iter::once(d)
       .chain((*ds.fragment()).to_owned().chars())
       .filter(|x| *x != '_')
       .collect();

@@ -36,13 +36,13 @@ use libipld::{
   codec::Codec,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Literal {
   Nat(Nat),
   Str(String),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LitType {
   Nat,
   Str,
@@ -54,22 +54,33 @@ pub enum BinderInfo {
   Implicit,
   StrictImplict,
   InstImplict,
-  Rec,
 }
 
-#[derive(Clone, Debug)]
+/// Yatima Expressions
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Expr {
+  /// Variables
   Var(Name, Nat),
+  /// Type Universes
   Sort(Univ),
-  Const(ConstCid, Vec<Univ>),
+  /// Global references to a Constant, with universe arguments
+  Const(Name, ConstCid, Vec<Univ>),
+  /// Function Application: (f x)
   App(Box<Expr>, Box<Expr>),
+  /// Anonymous Function: λ (x : A) => x
   Lam(Name, BinderInfo, Box<Expr>, Box<Expr>),
+  /// Universal Quantification: Π (x : A) -> x
   Pi(Name, BinderInfo, Box<Expr>, Box<Expr>),
+  /// Local definition: let x : A = e in b
   Let(Name, Box<Expr>, Box<Expr>, Box<Expr>),
+  /// Literal: "foo", 1, 2, 3
   Lit(Literal),
+  /// Literal Type: Nat, String
   Lty(LitType),
-  Fix(Box<Expr>),
+  /// Fixpoint recursion, μ x. x
+  Fix(Name, Box<Expr>),
 }
+
 impl Expr {
   pub fn cid(&self, env: &mut Env) -> Result<ExprCid, EnvError> {
     match self {
@@ -84,7 +95,7 @@ impl Expr {
         let meta = ExprMeta::Sort(univ_cid.meta).store(env)?;
         Ok(ExprCid { anon, meta })
       }
-      Expr::Const(const_cid, univs) => {
+      Expr::Const(name, const_cid, univs) => {
         let mut univ_anons = Vec::new();
         let mut univ_metas = Vec::new();
         for u in univs {
@@ -93,7 +104,8 @@ impl Expr {
           univ_metas.push(cid.meta);
         }
         let anon = ExprAnon::Const(const_cid.anon, univ_anons).store(env)?;
-        let meta = ExprMeta::Const(const_cid.meta, univ_metas).store(env)?;
+        let meta = ExprMeta::Const(name.clone(), const_cid.meta, univ_metas)
+          .store(env)?;
         Ok(ExprCid { anon, meta })
       }
       Expr::App(fun, arg) => {
@@ -142,10 +154,10 @@ impl Expr {
         let meta = ExprMeta::Lty.store(env)?;
         Ok(ExprCid { anon, meta })
       }
-      Expr::Fix(x) => {
+      Expr::Fix(name, x) => {
         let x_cid = x.cid(env)?;
         let anon = ExprAnon::Fix(x_cid.anon).store(env)?;
-        let meta = ExprMeta::Fix(x_cid.meta).store(env)?;
+        let meta = ExprMeta::Fix(name.clone(), x_cid.meta).store(env)?;
         Ok(ExprCid { anon, meta })
       }
     }
@@ -158,18 +170,29 @@ impl Expr {
   }
 }
 
+/// IPLD Serialization:
+/// ExprMeta::Var => [0, <name>]
+/// ExprMeta::Sort => [1, <pred>]
+/// ExprMeta::Const => [2, <name>, <const>, [<univs>*]]
+/// ExprMeta::App => [3, <fun>, <arg>]
+/// ExprMeta::Lam => [4, <name>, <type>, <body> ]
+/// ExprMeta::Pi => [5, <name>, <type>, <body> ]
+/// ExprMeta::Let => [6, <name>, <type>, <expr>, <body>]
+/// ExprMeta::Lit => [7]
+/// ExprMeta::Lty => [8]
+/// ExprMeta::Fix => [9, <name>, <body>]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExprMeta {
   Var(Name),
   Sort(UnivMetaCid),
-  Const(ConstMetaCid, Vec<UnivMetaCid>),
+  Const(Name, ConstMetaCid, Vec<UnivMetaCid>),
   App(ExprMetaCid, ExprMetaCid),
   Lam(Name, ExprMetaCid, ExprMetaCid),
   Pi(Name, ExprMetaCid, ExprMetaCid),
   Let(Name, ExprMetaCid, ExprMetaCid, ExprMetaCid),
   Lit,
   Lty,
-  Fix(ExprMetaCid),
+  Fix(Name, ExprMetaCid),
 }
 
 impl ExprMeta {
@@ -187,6 +210,17 @@ impl ExprMeta {
   }
 }
 
+/// IPLD Serialization:
+/// ExprAnon::Var => [0, <idx>]
+/// ExprAnon::Sort => [1, <pred>]
+/// ExprAnon::Const => [2, <const>, [<univs>*]]
+/// ExprAnon::App => [3, <fun>, <arg>]
+/// ExprAnon::Lam => [4, <bind>, <type>, <body> ]
+/// ExprAnon::Pi => [5, <bind>, <type>, <body> ]
+/// ExprAnon::Let => [6, <type>, <expr>, <body>]
+/// ExprAnon::Lit => [7, <lit>]
+/// ExprAnon::Lty => [8, <lty>]
+/// ExprAnon::Fix => [9, <body>]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExprAnon {
   Var(Nat),

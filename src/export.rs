@@ -1,9 +1,9 @@
-use crate::expression::Bind;
+use crate::expression::BinderInfo;
 
+use im::vector::Vector;
 use num_bigint::BigUint;
-use sp_im::vector::Vector;
 
-use sp_std::{
+use alloc::{
   collections::btree_map::BTreeMap,
   vec::Vec,
 };
@@ -79,9 +79,9 @@ pub enum Expr {
   /// #EA
   App { fun: EIdx, arg: EIdx },
   /// #EL
-  Lam { info: Bind, name: NIdx, typ: EIdx, bod: EIdx },
+  Lam { info: BinderInfo, name: NIdx, typ: EIdx, bod: EIdx },
   /// #EP
-  Pi { info: Bind, name: NIdx, typ: EIdx, bod: EIdx },
+  Pi { info: BinderInfo, name: NIdx, typ: EIdx, bod: EIdx },
   /// #EZ
   Let { name: NIdx, typ: EIdx, val: EIdx, bod: EIdx },
 }

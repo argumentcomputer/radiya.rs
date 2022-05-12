@@ -28,12 +28,17 @@ use libipld::{
 };
 
 /// Universe levels
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Univ {
+  /// Sort 0 aka Prop
   Zero,
+  /// Sort (n + 1)
   Succ(Box<Univ>),
+  /// Sort (max u v)
   Max(Box<Univ>, Box<Univ>),
+  /// Sort (imax u v)
   IMax(Box<Univ>, Box<Univ>),
+  /// Sort u
   Param(Name, Nat),
 }
 
@@ -80,6 +85,12 @@ impl Univ {
   }
 }
 
+/// IPLD Serialization:
+/// UnivMeta::Zero => [0]
+/// UnivMeta::Succ => [1, <pred_cid>]
+/// UnivMeta::Max => [2, <lhs_cid>, <rhs_cid>]
+/// UnivMeta::IMax => [3, <lhs_cid>, <rhs_cid>]
+/// UnivMeta::Param => [4, <name>]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UnivMeta {
   Zero,
@@ -104,6 +115,12 @@ impl UnivMeta {
   }
 }
 
+/// IPLD Serialization:
+/// UnivAnon::Zero => [0]
+/// UnivAnon::Succ => [1, <pred_cid>]
+/// UnivAnon::Max => [2, <lhs_cid>, <rhs_cid>]
+/// UnivAnon::IMax => [3, <lhs_cid>, <rhs_cid>]
+/// UnivAnon::Param => [4, <idx>]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum UnivAnon {
   Zero,

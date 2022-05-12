@@ -11,12 +11,12 @@ extern crate rand;
 
 extern crate alloc;
 
-// pub mod expression;
 pub mod constant;
 pub mod environment;
 pub mod expression;
 pub mod name;
 pub mod nat;
+pub mod parse;
 pub mod universe;
 
 // pub mod declaration;
@@ -24,13 +24,8 @@ pub mod universe;
 // pub mod local_context;
 // pub mod inductive;
 // pub mod quotient;
-// pub mod notation;
-// pub mod content;
 // pub mod export;
-// pub mod expression;
-// pub mod kvmap;
 // pub mod parse;
-// pub mod universe;
 
 //#[cfg(test)]
 // mod tests {
