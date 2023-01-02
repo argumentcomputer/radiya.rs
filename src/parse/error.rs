@@ -47,6 +47,8 @@ pub enum ParseErrorKind {
   ReservedSyntax(String),
   LitTypeLacksTermination(LitType),
   LiteralLacksTermination(Literal),
+  Env(String),
+  EnvBorrowMut(String),
   // TypeDefConstructorMustReturnItsType,
   InvalidSymbol(String),
   Nom(ErrorKind),
