@@ -58,12 +58,11 @@ use crate::{
   universe::Univ,
 };
 
-use super::utils::{
+use crate::parse::utils::{
   parse_name,
   parse_space,
+  UnivCtx,
 };
-
-pub type UnivCtx = Vector<Name>;
 
 pub fn parse_univ_constant()
 -> impl Fn(Span) -> IResult<Span, Univ, ParseError<Span>> {
@@ -285,5 +284,20 @@ pub mod tests {
         1u8.into()
       ))))),
     );
+  }
+  
+  use crate::universe::tests::dummy_univ_ctx;
+
+  #[quickcheck]
+  fn prop_univ_parse_print(x: Univ) -> bool {
+    let s = x.pretty(false);
+    let res = parse_univ(dummy_univ_ctx())(Span::new(&s));
+    match res {
+      Ok((_, y)) => x == y,
+      Err(e) => {
+        println!("err: {:?}", e);
+        false
+      }
+    }
   }
 }

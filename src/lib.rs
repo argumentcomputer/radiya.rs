@@ -17,39 +17,33 @@ pub mod expression;
 pub mod name;
 pub mod nat;
 pub mod parse;
+pub mod typechecker;
 pub mod universe;
 
-// pub mod declaration;
-// pub mod environment;
-// pub mod local_context;
-// pub mod inductive;
-// pub mod quotient;
-// pub mod export;
-// pub mod parse;
+#[cfg(test)]
+pub mod test {
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+  use rand::Rng;
 
-//#[cfg(test)]
-// mod tests {
-//  use core::ops::Range;
-//  use num_bigint::BigUint;
-//  use quickcheck::{
-//    Arbitrary,
-//    Gen,
-//  };
-//
-//  pub fn gen_range(g: &mut Gen, range: Range<usize>) -> usize {
-//    if range.end <= range.start {
-//      range.start
-//    }
-//    else {
-//      let res: usize = Arbitrary::arbitrary(g);
-//      (res % (range.end - range.start)) + range.start
-//    }
-//  }
-//
-//  pub fn arbitrary_big_uint() -> Box<dyn Fn(&mut Gen) -> BigUint> {
-//    Box::new(move |g: &mut Gen| {
-//      let v: Vec<u8> = Arbitrary::arbitrary(g);
-//      BigUint::from_bytes_be(&v)
-//    })
-//  }
-//}
+  pub fn frequency<T, F: Fn(&mut Gen) -> T>(
+    g: &mut Gen,
+    gens: Vec<(usize, F)>,
+  ) -> T {
+    let sum: usize = gens.iter().map(|x| x.0).sum();
+    let mut rng = rand::thread_rng();
+    let mut weight: usize = rng.gen_range(1..=sum);
+    // let mut weight: usize = g.rng.gen_range(1, sum);
+    for gen in gens {
+      if weight <= gen.0  {
+        return gen.1(g);
+      }
+      else {
+        weight -= gen.0;
+      }
+    }
+    panic!("Calculation error for weight = {}", weight);
+  }
+}
